@@ -1,6 +1,6 @@
 # SprawlCommons ACP extension contract
 
-Status: normative. Contract version `1.0.0` (see `VERSION`). Applies to ACP
+Status: normative. Contract version `1.0.1` (see `VERSION`). Applies to ACP
 protocol version 1.
 
 The keywords MUST, MUST NOT, SHOULD and MAY are as in RFC 2119.
@@ -30,7 +30,7 @@ Two axes are independent and MUST both be declared by an implementation:
 | Axis | This release | Meaning |
 |---|---|---|
 | `acp` | `1` | The ACP protocol version the peer speaks |
-| `contract` | `1.0.0` | This document and its schemas |
+| `contract` | `1.0.1` | This document and its schemas |
 
 Contract versions are semver:
 
@@ -243,7 +243,14 @@ Normative artifacts:
 
 - `schema/*.schema.json` — payload shape.
 - `conformance/matrix.json` — names, negotiation cases, accepted names.
+- `conformance/payloads.json` — valid and invalid payload examples for every schema.
 - `VERSION` — the contract version.
 
 An implementation that vendors a release MUST test the matrix and MUST fail
 when `VERSION` and the vendored copy disagree.
+
+Implementations SHOULD validate actual emitted payloads against these schemas,
+not only constants or hand-written examples. Unknown fields remain accepted.
+Contract 1.0.1 corrects schema omissions without changing the wire: the boundary
+ID alias is accepted, load snapshots contain both keys, and a stop reason is
+restricted to idle turns, as already specified above.

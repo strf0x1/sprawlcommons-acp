@@ -2,6 +2,14 @@
 
 Contract versions are semver (see `SPEC.md` §2).
 
+## 1.0.1 — 2026-11-04
+
+Schema and fixture corrections; no wire or negotiation change.
+
+- Accept the documented boundary `id` alias, with a non-empty ID.
+- Enforce the existing dual-key snapshot and idle-only stop-reason rules.
+- Add positive and negative payload fixtures for every schema, validated in CI.
+
 ## 1.0.0 — 2026-11-03
 
 Initial contract, extracted from Construct ADR 0038 and Deck ADR 0005 after
