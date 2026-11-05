@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Check the contract's own artifacts agree with each other.
 
-No third-party dependencies: this runs in CI and must stay boring.
+Uses the standard JSON Schema validator; install scripts/requirements.txt.
 """
 
 import json
 import pathlib
 import sys
+
+from jsonschema import Draft202012Validator
+from referencing import Registry, Resource
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 errors: list[str] = []
@@ -53,9 +56,34 @@ for path, schema in schemas.items():
     if schema and "$schema" not in schema:
         errors.append(f"{path.relative_to(ROOT)} has no $schema")
 
+payloads = load(ROOT / "conformance/payloads.json")
+if payloads:
+    if payloads["contract"] != version:
+        errors.append("payloads.contract disagrees with VERSION")
+    registry = Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema))
+        for schema in schemas.values() if schema
+    )
+    validators = {}
+    for path, schema in schemas.items():
+        Draft202012Validator.check_schema(schema)
+        validators[path.name] = Draft202012Validator(schema, registry=registry)
+    covered = set()
+    names = set()
+    for case in payloads["cases"]:
+        if case["case"] in names:
+            errors.append(f"duplicate payload case {case['case']}")
+        names.add(case["case"])
+        covered.add(case["schema"])
+        got = validators[case["schema"]].is_valid(case["payload"])
+        if got != case["valid"]:
+            errors.append(f"{case['case']}: expected valid={case['valid']}, got {got}")
+    if covered != set(validators):
+        errors.append("payload fixtures must cover every schema")
+
 if errors:
     print("FAILED")
     for e in errors:
         print(f"  {e}")
     sys.exit(1)
-print(f"ok: contract {version}, {len(schemas)} schemas, {len(matrix['negotiation'])} negotiation cases")
+print(f"ok: contract {version}, {len(schemas)} schemas, {len(matrix['negotiation'])} negotiation cases, {len(payloads["cases"])} payload cases")

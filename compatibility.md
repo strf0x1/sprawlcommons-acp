@@ -24,6 +24,10 @@ Implementations declare the contract version they vendor (Construct:
 current names is not a supported pairing across major versions; within 1.x it
 is.
 
+1.0.1 corrects schemas to match the existing prose and implementations; it
+changes no names, negotiation or supported peer pairing. Payload fixtures
+ship with the schemas for offline conformance testing.
+
 ## Sunset
 
 1. Both halves advertise the current and bare capability keys.
