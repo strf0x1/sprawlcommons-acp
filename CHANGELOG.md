@@ -2,6 +2,18 @@
 
 Contract versions are semver (see `SPEC.md` §2).
 
+## 1.1.0 — candidate
+
+Additive timed-grant observation metadata; no new method or capability.
+
+- Define `scope: "timed"` with an absolute `expires_at_ms` Unix-ms deadline.
+- Fix the five-minute host interval at decision time; prohibit renewal by
+  traffic, reconnect, polling or agent requests. Specify exclusive expiry.
+- Share metadata across ACP notices and existing boundary HTTP status/events.
+- Add schemas, positive/negative fixtures and deadline boundary cases.
+- Preserve 1.x names, aliases, legacy non-timed records, unknown fields and
+  approval-ID deduplication. Notifications still grant no authority.
+
 ## 1.0.1 — 2026-11-04
 
 Schema and fixture corrections; no wire or negotiation change.
