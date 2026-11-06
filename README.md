@@ -11,7 +11,10 @@ repo owns it.
 - [`conformance/matrix.json`](conformance/matrix.json) — the machine-readable
   negotiation table both repositories test against.
 - [`conformance/payloads.json`](conformance/payloads.json) — valid and invalid payload fixtures.
+- Boundary observation schemas also cover the existing HTTP status/event feed.
 - [`CHANGELOG.md`](CHANGELOG.md) — contracts are versioned; this says how.
+- [Construct timed-grant handoff](.handoff/construct-timed-grants.md) — receiver
+  adoption plan for contract 1.1.0.
 
 `VERSION` is the contract version. Implementations pin a release and vendor the
 machine-readable artifacts with a checksum; see

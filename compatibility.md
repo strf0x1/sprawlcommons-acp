@@ -17,6 +17,7 @@ in `conformance/matrix.json`; this page is the release view.
 | Contract | ACP | Construct | Deck | Notes |
 |---|---|---|---|---|
 | 1.0.x | 1 | 0.4+ | current | transition window; bare names accepted |
+| 1.1.0 | 1 | pending adoption | pending adoption | timed scope and absolute expiry metadata; names unchanged |
 | 2.0.0 | 1, 2 rules declared | TBD | TBD | bare names removed |
 
 Implementations declare the contract version they vendor (Construct:
@@ -37,3 +38,27 @@ ship with the schemas for offline conformance testing.
    bare names, `LEGACY_*` constants and dual advertisement.
 
 Removal is a contract major and MUST land as its own coordinated wave.
+
+## Timed grants (1.1.0)
+
+| Sender | Reader | Observation behavior |
+|---|---|---|
+| 1.0.x | 1.1 | Non-timed payloads without expiry remain accepted; existing text/aliases are preserved |
+| 1.1 timed metadata | 1.0.x | Scope is already a string; unknown expiry fields are ignored; old readers may omit expiry display |
+| 1.1 | 1.1 | Timed records require an absolute grant deadline; receiver validates and presents it |
+
+Every pairing retains host-only enforcement. An old reader's missing expiry
+presentation cannot authorize or extend an operation. No capability or
+method-name negotiation is added. Both boundary spellings remain accepted;
+current-key preference and legacy fallback are unchanged. Unknown future
+scope strings remain opaque informational labels, never authority.
+
+A malformed timed record is rejected before seen-ID marking; a past deadline
+is valid history and must not become a new timer. HTTP status/event metadata
+uses the same deadline, while older nullable/absent HTTP scopes remain valid.
+Do not backfill a missing timed deadline with receipt time plus five minutes.
+
+Adoption: merge and tag `v1.1.0` here, then pin both implementations in the
+same wave. A candidate implementation can use an immutable reviewed commit
+with `scripts/acp-contract.sh update 1.1.0 <commit>` and remain draft until the
+release exists. Do not hand-edit vendored schemas or drop either 1.x alias.

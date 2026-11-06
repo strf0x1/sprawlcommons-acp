@@ -52,6 +52,23 @@ if matrix:
         if case["case"] not in spec:
             errors.append(f"SPEC.md does not describe negotiation case {case['case']}")
 
+    grant = matrix.get("boundary_grants", {})
+    if (grant.get("timed_scope"), grant.get("deadline_field"), grant.get("duration_ms"),
+            grant.get("deadline_exclusive"), grant.get("new_capability_required")) != (
+            "timed", "expires_at_ms", 300000, True, False):
+        errors.append("boundary_grants constants disagree with contract 1.1")
+    for case in grant.get("deadline_cases", []):
+        if case["expires_at_ms"] != case["decision_at_ms"] + grant["duration_ms"]:
+            errors.append(f"{case['case']}: observation must not renew the grant")
+        if case["elapsed"] != (case["observed_at_ms"] >= case["expires_at_ms"]):
+            errors.append(f"{case['case']}: expiry is exclusive")
+    if {case["case"] for case in grant.get("deadline_cases", [])} != {
+            "before-deadline", "at-exclusive-deadline", "late-notice-does-not-renew"}:
+        errors.append("boundary_grants must cover admission, exclusive expiry and delayed delivery")
+    for term in ("expires_at_ms", 'scope: "timed"', "300000"):
+        if term not in spec:
+            errors.append(f"SPEC.md never defines {term}")
+
 for path, schema in schemas.items():
     if schema and "$schema" not in schema:
         errors.append(f"{path.relative_to(ROOT)} has no $schema")

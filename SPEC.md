@@ -1,6 +1,6 @@
 # SprawlCommons ACP extension contract
 
-Status: normative. Contract version `1.0.1` (see `VERSION`). Applies to ACP
+Status: normative. Contract version `1.1.0` (see `VERSION`). Applies to ACP
 protocol version 1.
 
 The keywords MUST, MUST NOT, SHOULD and MAY are as in RFC 2119.
@@ -30,7 +30,7 @@ Two axes are independent and MUST both be declared by an implementation:
 | Axis | This release | Meaning |
 |---|---|---|
 | `acp` | `1` | The ACP protocol version the peer speaks |
-| `contract` | `1.0.1` | This document and its schemas |
+| `contract` | `1.1.0` | This document and its schemas |
 
 Contract versions are semver:
 
@@ -185,11 +185,105 @@ forwards it to the model and cannot answer it.
 | `approval_id` (alias `id`) | yes | The decision this notes; used for seen-id deduplication |
 | `destination` | no | What the blocked request targeted |
 | `outcome` (alias `state`) | no | `allowed`, `denied`, …; default `decided` |
-| `scope` | no | The granted scope, if any |
+| `scope` | no | The reported grant scope; `timed` is defined in §5.4 |
+| `expires_at_ms` | required for `scope: "timed"`; otherwise optional | Absolute host grant deadline, Unix milliseconds (§5.4) |
 | `sessionId` (alias `session_id`) | no | Target session; absent means every session |
 
 The agent MUST deliver a given `approval_id` at most once, and MUST NOT repeat
 one already resolved through a boundary tool.
+
+### 5.4 Timed boundary grants and shared observations (since 1.1.0)
+
+`scope: "timed"` names the host's **Allow for 5 minutes** task grant.
+Every timed observation MUST contain `expires_at_ms`: an integer-valued JSON number of
+milliseconds since the Unix epoch in the inclusive range 0 through
+9007199254740991. It MUST NOT be a string, fractional number, relative duration or null.
+As in JSON Schema, `42.0` is integer-valued and normalizes to 42; implementations
+MUST accept this representation within the stated range.
+Older observations without timed scope remain valid without this field.
+Unknown scope strings and additional fields remain permitted for forward
+compatibility; a receiver MUST NOT infer authority from them.
+
+Example late decision (same fields under either boundary method):
+
+```json
+{
+  "approval_id": "a1f3",
+  "destination": "index.crates.io:443",
+  "outcome": "allowed",
+  "scope": "timed",
+  "expires_at_ms": 1800000300000,
+  "sessionId": "01J..."
+}
+```
+
+**Host authority and time.** The host computes the deadline once, at the
+human decision, as `decision_at_ms + 300000`. It persists that exact deadline
+for this task and uses it for every subsequent observation. Traffic, retry,
+reconnection, polling and daemon restart MUST NOT move it. A request at
+`now_ms >= expires_at_ms` cannot use this grant; the deadline is exclusive.
+The host closes active operations relying on that grant at expiry or
+revocation, including while its control daemon is unavailable. Other
+independently authorized operations are unaffected. Task stop removes the
+grant. A later, explicit human decision may create a new grant/deadline; an
+agent request cannot do so. Scope matching still preserves task, gateway,
+operation, destination and credential name, and all other host policy checks.
+
+This metadata MUST denote the grant deadline, not the pending approval's
+expiry or the HTTP long-poll timeout. A sender reports timed scope for an
+allowed decision. `once`, `task` and `project` retain their existing meanings;
+in particular a once retry-claim window MUST NOT be represented as an active
+operation's grant deadline. A task grant MAY report its actual deadline using
+the same field; absence of a deadline MUST NOT be described as unlimited
+permission. No new grant is implied by an informational record.
+
+**HTTP observations.** The existing read-only boundary endpoint exposes the
+same metadata, independently of ACP method spelling:
+
+- `GET /approvals/<id>` and its `?wait=<seconds>` long-poll success response:
+  `boundary-status.schema.json`. The existing `state`/`outcome` string aliases
+  and nullable/absent scope remain accepted. The path identifies the approval;
+  an `approval_id` echo is optional. The wait cap of 300 seconds is a caller
+  wait limit, not a grant duration or renewal request.
+- `GET /events?after=<seq>`: `boundary-events.schema.json`, either the existing
+  array or `{ "events": [...] }` wrapper. Each item is a
+  `boundary-event.schema.json` record with `seq`, `approval_id`, and the shared
+  state/scope/deadline fields. Sequence handling is unchanged.
+- `POST /approvals/<id>/withdraw` remains a withdrawal only. No status,
+  event, wait, withdrawal, or ACP notification can approve, extend or recreate
+  a grant. No new grant-decision endpoint is introduced here.
+
+When the same decision appears in multiple observations, the host MUST send
+the same deadline. These schemas describe successful observations, not HTTP
+transport-error bodies or a new tool invocation shape.
+
+**Receiver behavior.** A 1.1 receiver MUST preserve the scope and absolute
+deadline in boundary wait/status structured results and model-visible
+boundary text (tool-result notes and late decisions). It MUST identify the
+timestamp's units, for example `expires_at_ms=1800000300000 (Unix ms)`, or an
+unambiguous absolute UTC representation. Existing text for records with no
+new metadata SHOULD remain unchanged. It MUST NOT start a new five-minute
+window when a record arrives, assume the reported grant is still usable,
+automatically replay the blocked command, or generate a permission decision.
+The host remains authoritative despite clock skew or delayed delivery.
+
+An already elapsed deadline remains a valid historical observation. The
+receiver MUST retain the host's reported outcome and original deadline; it
+MAY label the deadline elapsed, but MUST NOT rewrite the host decision or
+claim current access. Seen-ID deduplication remains per approval ID across
+HTTP tools and both ACP method names: deadline metadata MUST NOT cause a
+second delivery or a second authorization. Malformed timed metadata is
+rejected before an ID is marked seen, so a corrected record can still arrive.
+A malformed HTTP record is an error/ignored invalid event, never an allowed
+observation; rejecting it MUST NOT permanently mark the transport unavailable.
+
+**Negotiation and compatibility.** This addition uses the existing `boundary`
+capability and §4.4 method selection without another capability or method.
+An old reader accepts the scope string and ignores the added timestamp; it
+may omit expiry display, but enforcement is always on the host. A new reader
+MUST accept old non-timed records and retain the 1.x alias/dual-name rules.
+Missing or malformed expiry for the newly defined timed scope is not a
+valid 1.1 observation; unknown future fields are not such an error.
 
 ## 6. Session setup (Construct parent → Construct child)
 
@@ -241,7 +335,7 @@ which ACP v2 `_meta` reservation it follows.
 
 Normative artifacts:
 
-- `schema/*.schema.json` — payload shape.
+- `schema/*.schema.json` — ACP payload and boundary HTTP observation shape.
 - `conformance/matrix.json` — names, negotiation cases, accepted names.
 - `conformance/payloads.json` — valid and invalid payload examples for every schema.
 - `VERSION` — the contract version.
