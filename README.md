@@ -12,6 +12,7 @@ repo owns it.
   negotiation table both repositories test against.
 - [`conformance/payloads.json`](conformance/payloads.json) — valid and invalid payload fixtures.
 - Boundary observation schemas also cover the existing HTTP status/event feed.
+- Since 1.2.0, `github-*` schemas and `matrix.json` `github` define the GitHub operation API (SPEC.md §11).
 - [`CHANGELOG.md`](CHANGELOG.md) — contracts are versioned; this says how.
 - [Construct timed-grant handoff](.handoff/construct-timed-grants.md) — receiver
   adoption plan for contract 1.1.0.

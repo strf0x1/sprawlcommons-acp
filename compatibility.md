@@ -18,6 +18,7 @@ in `conformance/matrix.json`; this page is the release view.
 |---|---|---|---|---|
 | 1.0.x | 1 | 0.4+ | current | transition window; bare names accepted |
 | 1.1.0 | 1 | pending adoption | pending adoption | timed scope and absolute expiry metadata; names unchanged |
+| 1.2.0 | 1 | pending adoption | pending adoption | GitHub operation API (§11); ACP names unchanged |
 | 2.0.0 | 1, 2 rules declared | TBD | TBD | bare names removed |
 
 Implementations declare the contract version they vendor (Construct:
@@ -62,3 +63,17 @@ Adoption: merge and tag `v1.1.0` here, then pin both implementations in the
 same wave. A candidate implementation can use an immutable reviewed commit
 with `scripts/acp-contract.sh update 1.1.0 <commit>` and remain draft until the
 release exists. Do not hand-edit vendored schemas or drop either 1.x alias.
+
+## GitHub operations (1.2.0)
+
+| Deck (server) | Construct (client) | Result |
+|---|---|---|
+| ≤ 1.1 | 1.2 | No `DECK_GITHUB_URL` in the guest; the client reports that it cannot publish from this sandbox and does not fall back to `git push` or `gh` |
+| 1.2 | ≤ 1.1 | No `github_operations` capability; Deck tells the user this agent cannot publish from a sandbox |
+| 1.2 | 1.2 | `refs` for the destination, then `publish` / `create_pr` / `update_pr` / `review` |
+
+Local (non-VM) tasks have no gateway and no `DECK_GITHUB_URL`; Construct's
+host-credential path is outside this contract. The wire is new, so no gateway
+release before 1.2.0 needs compatibility: the server adopts the closed
+requests, the uniform refusal body and `deck_not_permitted` in the same wave
+as the client.
