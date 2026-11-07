@@ -1,7 +1,7 @@
 # SprawlCommons ACP extension contract
 
-Status: normative. Contract version `1.1.0` (see `VERSION`). Applies to ACP
-protocol version 1.
+Status: normative. Contract version `1.2.0` (see `VERSION`). Applies to ACP
+protocol version 1, and to the HTTP GitHub operation API of §11.
 
 The keywords MUST, MUST NOT, SHOULD and MAY are as in RFC 2119.
 
@@ -16,7 +16,9 @@ delegates to a child.
 
 ACP only fixes the standard vocabulary. This contract fixes the extensions the
 two projects share, and the compatibility window while released peers still
-speak the old names.
+speak the old names. Since 1.2.0 it also fixes the GitHub operation API (§11):
+an HTTP wire between an agent in a Deck sandbox and Deck's host gateway,
+which both projects implement and which therefore versions here.
 
 ACP reserves `_`-prefixed methods for extensions and, in v2, reserves
 unprefixed `_meta` keys. Extension `_meta` keys therefore use a reverse-DNS
@@ -30,7 +32,7 @@ Two axes are independent and MUST both be declared by an implementation:
 | Axis | This release | Meaning |
 |---|---|---|
 | `acp` | `1` | The ACP protocol version the peer speaks |
-| `contract` | `1.1.0` | This document and its schemas |
+| `contract` | `1.2.0` | This document and its schemas |
 
 Contract versions are semver:
 
@@ -79,6 +81,8 @@ The agent MUST advertise `agentCapabilities._meta`:
 - `boundary` is advertised only when this process has a Deck boundary
   endpoint. Deck MUST NOT send a boundary notification to an agent that did
   not advertise it under either key.
+- `github_operations` (since 1.2.0) is an integer under the current Deck key
+  only; see §11.1.
 
 ### 4.2 Construct as client (initialize request)
 
@@ -335,8 +339,11 @@ which ACP v2 `_meta` reservation it follows.
 
 Normative artifacts:
 
-- `schema/*.schema.json` — ACP payload and boundary HTTP observation shape.
-- `conformance/matrix.json` — names, negotiation cases, accepted names.
+- `schema/*.schema.json` — ACP payload, boundary HTTP observation and GitHub
+  operation (`github-*`) shape.
+- `conformance/matrix.json` — names, negotiation cases, accepted names, and
+  under `github` the operation table, limits, refusal table and publish
+  framing cases.
 - `conformance/payloads.json` — valid and invalid payload examples for every schema.
 - `VERSION` — the contract version.
 
@@ -348,3 +355,170 @@ not only constants or hand-written examples. Unknown fields remain accepted.
 Contract 1.0.1 corrects schema omissions without changing the wire: the boundary
 ID alias is accepted, load snapshots contain both keys, and a stop reason is
 restricted to idle turns, as already specified above.
+
+## 11. GitHub operation API (since 1.2.0)
+
+A Deck VM task has no IP route and no GitHub credential. It publishes through
+a closed set of operations that Deck's host gateway performs with a host-held
+token (Deck ADR 0007, ADR 0008). This section is the wire between the
+gateway (the **server**, implemented by Deck) and the agent's tool that calls
+it (the **client**, implemented by Construct's `developer` tool and by
+`deck-fake-agent`). It is not an ACP method; it is versioned here because two
+implementations depend on it. Host policy (which repository, which branches,
+whether a write asks the user) is the server's and is not specified here
+beyond what the client observes.
+
+### 11.1 Discovery and capability
+
+- The server is reachable at the URL in the guest environment variable
+  `DECK_GITHUB_URL` (HTTP/1.1, plain, one request per connection). It is set
+  only when the task has a repository; a client MUST treat its absence as "no
+  GitHub publication from this sandbox" and MUST NOT fall back to `git push`,
+  `gh`, or any other route.
+- An agent whose client speaks this API advertises
+  `agentCapabilities._meta["com.sprawlcommons/deck"].github_operations` in its
+  `initialize` response: the highest API version it speaks. This contract
+  defines version `1`. The capability exists only under the current key; it
+  has no legacy (`deck`) form, and a reader MUST NOT look for one. A reader
+  treats an absent, non-integer or `0` value as "does not speak it". Deck
+  uses it only to tell the user that an agent cannot publish from a sandbox;
+  it grants nothing.
+- The client learns its destination from `refs` (§11.4), never from the
+  environment. No repository, base, task id or branch is in the guest
+  environment for this purpose.
+
+### 11.2 Requests
+
+Every operation is `POST` to its own path with a JSON object body. The body's
+`operation` field MUST equal the operation the path serves.
+
+| Operation | Path | Writes | Request schema | Success schema |
+|---|---|---|---|---|
+| `publish` | `/operations/publish` | yes | `github-publish-request` (+ bundle, §11.3) | `github-publish-response` |
+| `refs` | `/operations/refs` | no | `github-refs-request` | `github-refs-response` |
+| `create_pr` | `/operations/pull_request` | yes | `github-create-pr-request` | `github-pull-request` |
+| `update_pr` | `/operations/pull_request/update` | yes | `github-update-pr-request` | `github-pull-request` |
+| `review` | `/operations/pull_request/review` | no | `github-review-request` | `github-review-response` |
+
+Rules:
+
+- The JSON object is at most 65536 bytes. Requests are closed:
+  `additionalProperties` is false, and the server MUST refuse an unknown field
+  with `deck_bad_request` rather than ignore it, so a client never believes it
+  got a capability it did not.
+- A branch is a name without `refs/heads/`, at most 200 bytes, of ASCII
+  letters, digits and `._-/`, with no empty, `.`-leading, `.`-trailing or
+  `.lock`-suffixed component, no `..`, not `HEAD` and not starting with `-`.
+  The schemas check the alphabet and length; the server checks the rest.
+- `create_pr` requires `head`, `base` and a non-blank `title`; `body` defaults
+  to empty and `draft` to `true`. `update_pr` requires `number` and at least one
+  of `title`, `body`, `base`, `draft`; a present `body`, including `""`, sets
+  the body. The title and body together are at most 65536 bytes.
+- A request whose operation is not in the set is refused, never forwarded.
+  The names `merge`, `close`, `delete`, `tag`, `release`, `force_push`,
+  `workflow`, `dispatch` and `settings` are refused by name with
+  `deck_not_permitted` (403) and a message that lists what a task may do; any
+  other unknown path is `deck_not_permitted` (404). A method other than `POST`
+  is `deck_bad_request` (405).
+- `publish` MAY carry `summary: { subject, count }`: the subject of the commit
+  being published (at most 256 characters) and how many commits are new. It is
+  guest-supplied description that the server MAY show on an approval card,
+  labelled as such. It decides nothing: the commit that lands is the one in
+  the bundle, which the server reads itself. A `create_pr`/`update_pr` card
+  is described from the request's own `title` and `draft`, so those
+  operations have no `summary` field.
+
+### 11.3 Publish framing
+
+A `publish` body is the JSON object, immediately followed by a 4-byte
+big-endian unsigned length `n`, then exactly `n` bytes of a git bundle. One
+`content-length` covers all three; chunked bodies are refused. The JSON
+object ends where its top-level value ends; there is no separator.
+
+- `n` is at most 16777216; a larger declared length is refused (413) before
+  anything is read or allocated. A body with no length prefix is 411; one that
+  ends inside the bundle is 400.
+- The bundle is `# v2 git bundle` with exactly one ref line naming
+  `refs/heads/<branch>` for the request's `branch`, optionally preceded by
+  prerequisite lines (`-<sha> [subject]`), then a blank line, then the pack.
+  Any other header line, a second ref, another ref name or another version is
+  refused (400) before `git` runs.
+- An incremental bundle names the branch's published tip as its prerequisite.
+  The server fetches the remote tip first, so a prerequisite resolves however
+  the branch was last pushed; one that is not on the branch is
+  `deck_bad_request`.
+- The publish is fast-forward only. If the branch has a commit that is not an
+  ancestor of the bundle's, the reply is `deck_github_refused` (403) with
+  `current`: the client rebases onto it and publishes again; it MUST NOT
+  retry the same bundle. If the branch moved during the publish, the reply is
+  `deck_github_conflict` (409, retryable) with `current`.
+
+`matrix.json` `github.framing_cases` carries whole bodies (base64) and what a
+server must conclude from each; both implementations SHOULD test their
+encoder or parser against them.
+
+### 11.4 Responses
+
+A success is `200` with the operation's success schema. Every success has a
+`domain` string, the destination the server recorded (`owner/name#branch`,
+`owner/name#pr7`, or `owner/name`). Responses are open: a client MUST ignore
+fields it does not know.
+
+- `publish`: `repository`, `branch`, `commit` (40 hex), `previous` (the prior
+  tip, `null` when the branch was created) and `created`.
+- `refs`: `repository` (`owner/name`, lowercased), `base` (the only base a
+  pull request may target), `task_branch` (this task's own branch, present
+  before it exists on GitHub), `writable` (every branch this task may write;
+  it always contains `task_branch`) and `branches` (`branch`, `commit`,
+  `task_branch`). The server is the authority; a client builds its bundle for
+  a branch in `writable` and opens pull requests against `base`.
+- `create_pr`/`update_pr`: the pull request summary: `number`, `title`,
+  `state` (`open`/`closed`), `draft`, `head`, `head_commit`, `base`,
+  `mergeable` (`null` while GitHub computes it), `html_url`, and optionally
+  `merged`.
+- `review`: the summary plus `merged` (required) and `checks`: `null` when the
+  head commit is unknown, else `{ total, runs: [{ name, status, conclusion }] }`
+  with at most 100 runs. `status` and `conclusion` are GitHub's strings, passed
+  through; a client MUST NOT reject one it does not know.
+
+### 11.5 Refusals
+
+Every non-2xx body, including transport refusals before an operation is
+parsed, is `github-error`: `error.{message, type, code}` with `type` equal to
+`code`, and `retryable`. `current` (40 hex) appears only with
+`deck_github_refused` (a rewrite) or `deck_github_conflict` (required).
+`approval_id` appears only with `deck_boundary_denied`, and the same id is in
+an `x-deck-approval` response header. Messages are bounded and never contain
+a credential.
+
+| Code | Status | Retryable | The client should |
+|---|---|---|---|
+| `deck_github_refused` | 403 | no | Do something else: a branch, base or pull request this task may not touch, or a rewrite (`current` names the commit to rebase onto). |
+| `deck_github_conflict` | 409 | yes | Rebuild on `current`, then publish again. |
+| `deck_bad_request` | 400, 405, 408, 411, 413, 431 | no | Fix the request or bundle. |
+| `deck_github_not_found` | 404 | no | GitHub has no such pull request. |
+| `deck_github_rejected` | 409, 422 | no | GitHub refused it (e.g. a pull request already exists, a protected-branch hook); its reason is the message. |
+| `deck_github_credential` | 502 | no | Report it; the host's token is the user's to fix. |
+| `deck_github_failed` | 502 | yes | Retry later: GitHub or git was unreachable or rate limited. |
+| `deck_not_permitted` | 403, 404 | no | Stop: the operation is not in the set. |
+| `deck_boundary_denied` | 403 | per body | `retryable: true` with `approval_id`: the user has not decided; retry after they do. `false`: denied by policy. |
+| `deck_boundary_unavailable` | 502 | yes | Retry later: the approval queue could not be reached. |
+| `deck_credential_missing` | 503 | no | Report it: no credential is configured. |
+| `deck_credential_unavailable` | 503 | yes | Retry later: the store could not be read now. |
+| `deck_credential_refused` | 403 | no | Report it: the user refused the credential read. |
+| `deck_credential_revoked` | 403 | no | Stop: the credential was revoked during the operation; a ref already pushed stays pushed. |
+
+A client MUST surface the message to the model and MUST NOT turn any refusal
+into an attempt on another route. A `retryable: false` refusal MUST NOT be
+retried unchanged.
+
+### 11.6 Compatibility
+
+This API is new in 1.2.0 and additive: no ACP name, capability or payload
+defined earlier changes, and a peer that ignores it is unaffected. A 1.1
+Deck never sets `DECK_GITHUB_URL` for a client to find; a 1.1 Construct does
+not advertise `github_operations`, so a 1.2 Deck reports that it cannot
+publish from a sandbox instead of letting a push fail. Within 1.x, fields are
+only added to responses, and an added request field is optional and refused
+by a server that does not know it, so an older server fails a newer client
+loudly. A new operation is a new path and a new API version.
