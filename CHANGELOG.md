@@ -2,7 +2,7 @@
 
 Contract versions are semver (see `SPEC.md` §2).
 
-## 1.3.0 — candidate
+## 1.3.0 — 2026-11-17
 
 Additive: idempotent prompts (SPEC.md §12). A client can resend a
 `session/prompt` whose response it never got without the prompt running
