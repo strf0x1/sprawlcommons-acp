@@ -170,6 +170,25 @@ if matrix:
         if term not in spec:
             errors.append(f"SPEC.md never defines {term}")
 
+    idem = matrix.get("idempotent_prompts")
+    if idem is None:
+        errors.append("matrix has no idempotent_prompts (contract 1.3+)")
+    else:
+        if (idem["capability_key"], idem["meta_key"]) != (names["construct_meta"], names["construct_meta"]):
+            errors.append("idempotent_prompts lives under the current Construct key only")
+        if (idem["capability"], idem["field"], idem["min_length"], idem["max_length"], idem["invalid_error"],
+                idem["conflict_error"]) != ("idempotentPrompts", "idempotencyKey", 1, 255, -32602,
+                                            {"code": -32602, "reason": "idempotency_key_conflict"}):
+            errors.append("idempotent_prompts constants disagree with SPEC.md §12 and ACP v2")
+        cases = {c["case"]: c for c in idem["cases"]}
+        if set(cases) != {"new-key", "queued", "running", "ended", "cut-off", "conflict", "invalid-key"}:
+            errors.append("idempotent_prompts must cover every recorded state of SPEC.md §12.4")
+        if [c for c, v in cases.items() if v["starts_turn"]] != ["new-key"]:
+            errors.append("only a key with nothing recorded may start a turn")
+        for term in (idem["capability"], idem["field"], idem["conflict_error"]["reason"], "idempotent_prompts.cases"):
+            if term not in spec:
+                errors.append(f"SPEC.md never names {term}")
+
 for path, schema in schemas.items():
     if schema and "$schema" not in schema:
         errors.append(f"{path.relative_to(ROOT)} has no $schema")

@@ -2,6 +2,30 @@
 
 Contract versions are semver (see `SPEC.md` §2).
 
+## 1.3.0 — candidate
+
+Additive: idempotent prompts (SPEC.md §12). A client can resend a
+`session/prompt` whose response it never got without the prompt running
+twice. Mirrors ACP v2's `PromptRequest.idempotencyKey` (name, length, errors,
+reused-key rules) on ACP v1, whose response is the turn's stop reason. No ACP
+name, negotiation or existing payload changes.
+
+- Agent capability `com.sprawlcommons/construct.idempotentPrompts` (boolean),
+  current key only.
+- `session/prompt` `_meta["com.sprawlcommons/construct"].idempotencyKey`: an
+  opaque string of 1 to 255 characters, scoped to the session; `null` or absent
+  means no key; any other value is refused with `-32602`.
+- The agent records the key with the prompt before the turn starts and keeps
+  it as long as the session can be loaded. A recorded key starts no turn: the
+  request is answered with the queued or running turn's outcome, the ended
+  turn's stop reason, or `cancelled` for a turn cut off by a restart.
+- A recorded key with a different prompt is answered as a retry or refused
+  with `-32602` and `data.reason = "idempotency_key_conflict"`; the key stays
+  with the first prompt. Keys are never echoed on the wire.
+- Schemas `prompt-meta` and `idempotency-conflict`, fixtures, and the
+  `idempotent_prompts` table in `matrix.json` that both implementations
+  iterate.
+
 ## 1.2.0 — candidate
 
 Additive: the GitHub operation API between a sandboxed agent and Deck's host
