@@ -1,6 +1,6 @@
 # SprawlCommons ACP extension contract
 
-Status: normative. Contract version `1.2.0` (see `VERSION`). Applies to ACP
+Status: normative. Contract version `1.3.0` (see `VERSION`). Applies to ACP
 protocol version 1, and to the HTTP GitHub operation API of §11.
 
 The keywords MUST, MUST NOT, SHOULD and MAY are as in RFC 2119.
@@ -32,7 +32,7 @@ Two axes are independent and MUST both be declared by an implementation:
 | Axis | This release | Meaning |
 |---|---|---|
 | `acp` | `1` | The ACP protocol version the peer speaks |
-| `contract` | `1.2.0` | This document and its schemas |
+| `contract` | `1.3.0` | This document and its schemas |
 
 Contract versions are semver:
 
@@ -83,6 +83,8 @@ The agent MUST advertise `agentCapabilities._meta`:
   not advertise it under either key.
 - `github_operations` (since 1.2.0) is an integer under the current Deck key
   only; see §11.1.
+- `idempotentPrompts` (since 1.3.0) is a boolean under the current Construct
+  key only; see §12.1.
 
 ### 4.2 Construct as client (initialize request)
 
@@ -522,3 +524,106 @@ publish from a sandbox instead of letting a push fail. Within 1.x, fields are
 only added to responses, and an added request field is optional and refused
 by a server that does not know it, so an older server fails a newer client
 loudly. A new operation is a new path and a new API version.
+
+## 12. Idempotent prompts (since 1.3.0)
+
+A client that never receives the response to `session/prompt` cannot tell
+whether the agent took the prompt. This happens when the agent's process, its
+VM or the connection dies. Without a key, sending the prompt again can run it
+twice. This section gives ACP v1 the prompt key that ACP v2 defines as
+`PromptRequest.idempotencyKey`, with the same name and rules, adapted to v1's
+response (the stop reason, sent when the turn ends). Contract 2.0 moves the
+field to v2's top-level parameter. Its meaning does not change.
+
+### 12.1 Capability
+
+An agent that implements this section advertises
+`agentCapabilities._meta["com.sprawlcommons/construct"].idempotentPrompts = true`,
+under the current key only. A client MUST NOT send a key to an agent that did
+not advertise it. An agent that does not know the field ignores it, like any
+unknown `_meta` member, and would run a resent prompt again.
+
+### 12.2 The key
+
+`session/prompt` params carry it under the current Construct key:
+
+```json
+{
+  "sessionId": "01J...",
+  "prompt": [{ "type": "text", "text": "Run the database migration" }],
+  "_meta": {
+    "com.sprawlcommons/construct": { "idempotencyKey": "0b6f3c1e-8d2a-4c57-9a41-5e2f7d90c3ab" }
+  }
+}
+```
+
+- The field is optional. Omitted and `null` are equivalent and mean no key; the
+  agent then handles the prompt without duplicate detection.
+- When present, the key is an opaque, case-sensitive string of 1 to 255
+  characters. The agent MUST reject any other value with `-32602` (Invalid
+  params) and MUST NOT treat it as omitted.
+- A key is scoped to the session named by `sessionId`. The same string in
+  another session names an unrelated prompt.
+- There is no legacy form. The legacy `construct` key does not carry it.
+
+### 12.3 The client
+
+- The client generates the key when the user submits the input, and stores it
+  with the pending input. It SHOULD use a UUID (RFC 9562) or another random
+  value with at least as much entropy, and SHOULD NOT derive it from user
+  content or put sensitive data in it.
+- One key identifies one prompt. The client sends the same key on every
+  attempt, including after it reconnects, reattaches (`session/load`) or
+  restarts. It uses a new key for a new prompt, including when the user sends
+  the same text again on purpose.
+- A client MUST NOT send the same key with a different prompt.
+- Each attempt is its own JSON-RPC request with its own `id`.
+
+### 12.4 The agent
+
+The agent records the key with the prompt at the point where the prompt
+becomes part of the session: in Construct, on the journaled record of the
+submitted prompt, written before the turn starts. The key MUST be at least as
+durable as the prompt, and it is retained for as long as the session can be
+loaded. Recording it later would reopen the window this section closes.
+
+On a request with a key, the agent looks the key up in the session:
+
+| What the agent has recorded for the key | What the agent does |
+|---|---|
+| Nothing | Handles the prompt as usual, and records the key with it. |
+| A prompt still waiting to start (queued behind a running turn) | Does not queue a second prompt. Answers this request when it answers the first one, with the same outcome. |
+| A prompt whose turn is running | Does not start a turn. Answers this request when that turn ends, with its stop reason. |
+| A prompt whose turn ended with a stop reason | Does not start a turn. Answers at once with that stop reason. |
+| A prompt whose turn never recorded a stop reason (the agent restarted mid-turn) | Does not start a turn. Answers at once with `cancelled`. Recovery may leave the session idle, and the client decides whether to send a new prompt. |
+
+These cases are `idempotent_prompts.cases` in `conformance/matrix.json`.
+
+- **No second turn.** A request answered from a recorded key starts no turn,
+  inserts no user message, does not increase the turn number of §5.2 and adds
+  nothing to the session's history.
+- **A reused key.** The agent MUST NOT run a second prompt for a recorded key.
+  If a request carries a recorded key with a different prompt, the agent
+  either answers as for a retry or, when it notices the difference, rejects the
+  request with `-32602` (Invalid params). When it rejects, the error's `data`
+  MUST be `{ "reason": "idempotency_key_conflict" }`. Agents are not required to
+  compare prompts; Construct compares them and rejects. After a rejection, the
+  key stays recorded for the first prompt.
+- **Errors leave the key unused.** A prompt the agent refused before recording
+  it (for example an unknown session) records nothing, and the client can send
+  the same prompt with the same key again.
+- **Cancelling.** `session/cancel` ends the running turn as usual. Every
+  request waiting on that turn's key gets the turn's `cancelled` stop reason.
+- **Keys stay private.** The agent MUST NOT echo a key in event notifications
+  (§5.1), turn notifications (§5.2), attachment snapshots (§7), replayed
+  history or the standard `session/update` stream. A key is not a credential.
+  It only has meaning in a session the caller can already prompt.
+
+### 12.5 Compatibility
+
+Additive. A 1.2 client never sends a key, and a 1.3 agent behaves as before.
+A 1.3 client talking to a 1.2 agent sees no `idempotentPrompts` and sends no
+key. Like any 1.2 client, it cannot tell whether a prompt whose response was
+lost ran, so it SHOULD ask the user rather than resend on its own. A 1.3 agent
+that advertises the capability and gets a malformed key rejects it. It never
+runs the prompt without the key, so a client bug fails loudly.

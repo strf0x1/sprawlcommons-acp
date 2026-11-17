@@ -19,6 +19,7 @@ in `conformance/matrix.json`; this page is the release view.
 | 1.0.x | 1 | 0.4+ | current | transition window; bare names accepted |
 | 1.1.0 | 1 | pending adoption | pending adoption | timed scope and absolute expiry metadata; names unchanged |
 | 1.2.0 | 1 | pending adoption | pending adoption | GitHub operation API (§11); ACP names unchanged |
+| 1.3.0 | 1 | pending adoption | pending adoption | idempotent prompts (§12); ACP names unchanged |
 | 2.0.0 | 1, 2 rules declared | TBD | TBD | bare names removed |
 
 Implementations declare the contract version they vendor (Construct:
@@ -77,3 +78,14 @@ host-credential path is outside this contract. The wire is new, so no gateway
 release before 1.2.0 needs compatibility: the server adopts the closed
 requests, the uniform refusal body and `deck_not_permitted` in the same wave
 as the client.
+
+## Idempotent prompts (1.3.0)
+
+| Client | Agent | Behavior |
+|---|---|---|
+| 1.2 | 1.3 | No key is sent; prompts behave as before |
+| 1.3 | 1.2 | No `idempotentPrompts` is advertised, so no key is sent; a prompt whose response was lost is the user's to resend, never the client's on its own |
+| 1.3 | 1.3 | A resent prompt with its key starts no second turn and is answered with the original's outcome |
+
+The key is v2's `PromptRequest.idempotencyKey` under a v1 `_meta` key. Contract
+2.0 moves it to the top-level parameter without changing what it means.
