@@ -1,6 +1,6 @@
 # SprawlCommons ACP extension contract
 
-Status: normative. Contract version `1.4.0` (see `VERSION`). Applies to ACP
+Status: normative. Contract version `1.5.0` (see `VERSION`). Applies to ACP
 protocol version 1, to the HTTP GitHub operation API of §11, and to the HTTP
 coordinator task-control API of §13.
 
@@ -35,7 +35,7 @@ Two axes are independent and MUST both be declared by an implementation:
 | Axis | This release | Meaning |
 |---|---|---|
 | `acp` | `1` | The ACP protocol version the peer speaks |
-| `contract` | `1.4.0` | This document and its schemas |
+| `contract` | `1.5.0` | This document and its schemas |
 
 Contract versions are semver:
 
@@ -632,7 +632,7 @@ lost ran, so it SHOULD ask the user rather than resend on its own. A 1.3 agent
 that advertises the capability and gets a malformed key rejects it. It never
 runs the prompt without the key, so a client bug fails loudly.
 
-## 13. Coordinator task control (since 1.4.0)
+## 13. Coordinator task control (since 1.4.0; project defaults since 1.5.0)
 
 A project coordinator is a task whose agent directs other tasks: it creates
 workers, prompts them, waits for their turns and stops them (Deck ADR 0011
@@ -708,9 +708,9 @@ operation of a closed set:
 
 | Operation | Input | Success reply | Request schema | Success schema |
 |---|---|---|---|---|
-| `tasks` | `project?` | `{ tasks, truncated }`: at most 200 summaries | `control-tasks-request` | `control-tasks-response` |
+| `tasks` | `project?` | `{ tasks, truncated, projects }`: at most 200 summaries and the project set | `control-tasks-request` | `control-tasks-response` |
 | `task` | `id` | `{ task }`: one summary | `control-task-request` | `control-task-response` |
-| `create` | `project`, `brief`, `title?`, `budget?` | `{ id }` | `control-create-request` | `control-create-response` |
+| `create` | `project?`, `brief`, `title?`, `budget?` | `{ id }` | `control-create-request` | `control-create-response` |
 | `prompt` | `id`, `text` | `{ turn }` | `control-prompt-request` | `control-prompt-response` |
 | `wait` | `id`, `after_turn?`, `wait_ms` | `{ timed_out, task }` | `control-wait-request` | `control-wait-response` |
 | `stop` | `id` | `{ id, state }` | `control-stop-request` | `control-stop-response` |
@@ -729,11 +729,17 @@ in scope when its project is. A project outside the set is
 exactly as a task that does not exist, so the surface never discloses tasks
 the coordinator may not see. The coordinator itself is never in `tasks`.
 `prompt` or `stop` naming any coordinator, and `wait` naming the caller
-itself, are `deck_control_refused`.
+itself, are `deck_control_refused`. Since 1.5.0 a `deck_control_scope`
+message names the project ids in the set, so the model can correct the
+request without asking the user.
 
 - **`tasks`** lists the summaries (§13.4) of tasks in scope, limited to
   `project` when it is given, most recently created first. At most 200 are
-  returned; `truncated` is true when more exist.
+  returned; `truncated` is true when more exist. Since 1.5.0 the reply also
+  carries `projects`: the coordinator's whole project set, each
+  `{ id, name }` (`id` the project key `create` and `tasks` take, `name` the
+  name the user sees in Deck), whether or not any task exists yet. A client
+  reading a 1.4 server finds no `projects` and MUST NOT fail on that.
 - **`task`** returns one summary.
 - **`create`** records a worker in `project`, starts it, and delivers `brief`
   as its first prompt once its session is up. It returns the new id as soon
@@ -746,7 +752,11 @@ itself, are `deck_control_refused`.
   above it is `deck_control_refused`, as is a project with no recorded agent
   command. Reaching the policy's concurrency cap (live workers this
   coordinator created) or creation rate (per rolling hour) is
-  `deck_control_cap`.
+  `deck_control_cap`. Since 1.5.0 `project` may be omitted: when the
+  coordinator's project set has exactly one project, the server uses it;
+  otherwise it refuses with `deck_control_bad_request` (400) and the message
+  names the set's ids. A client SHOULD omit it unless the set has more than
+  one project.
 - **`prompt`** sends `text` to an idle task and returns the number of the
   turn it began (§5.2: turns count from 0 and the first prompt begins turn 1).
   A task whose turn is `working` or `waiting` is `deck_control_busy`. A task
@@ -835,3 +845,9 @@ tasks. Within 1.x, fields are only added to replies, a new request field is
 optional and refused by a server that does not know it, a new refusal code is
 a minor release, and a new operation is a minor release that an older server
 refuses with `deck_control_refused`.
+
+1.5.0 is additive in that sense. `create`'s `project` becomes optional, so a
+1.4 server refuses a `create` without it as `deck_control_bad_request`; a
+1.5 client that may meet a 1.4 server sends `project` (it is in every
+`tasks` summary, and in a 1.5 `tasks` reply's `projects`). `tasks` gains the
+reply field `projects`, which a 1.4 client ignores.

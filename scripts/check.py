@@ -233,6 +233,15 @@ def check_control(ctl, schemas, validators, spec):
                               f"{'with' if local else 'without'} a bearer token")
     if timeouts < 2:
         errors.append("control exchanges need a wait timeout with and without a bearer token")
+    # 1.5.0: `create` defaults its project, and `tasks` names the project set.
+    if "project" in by_name.get("control-create-request.schema.json", {}).get("required", []):
+        errors.append("control-create-request must not require project (1.5.0)")
+    if "projects" not in by_name.get("control-tasks-response.schema.json", {}).get("required", []):
+        errors.append("control-tasks-response must require projects (1.5.0)")
+    defaults = {c["token"] is not None for c in ctl["exchanges"] if c["body"].get("operation") == "create"
+                and "project" not in c["body"] and c["expect"]["status"] == 200}
+    if defaults != {False, True}:
+        errors.append("control exchanges need a create without project, with and without a bearer token")
 
 
 def load(path: pathlib.Path):
