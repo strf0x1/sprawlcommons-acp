@@ -2,7 +2,7 @@
 
 Contract versions are semver (see `SPEC.md` §2).
 
-## 1.4.0 — candidate
+## 1.4.0 — 2026-11-17
 
 Additive: the coordinator task-control API between a coordinator task and
 Deck's host gateway (SPEC.md §13; Deck ADR 0011 §4). No ACP name,
