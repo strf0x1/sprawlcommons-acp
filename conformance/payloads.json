@@ -1,5 +1,5 @@
 {
-  "contract": "1.3.0",
+  "contract": "1.4.0",
   "cases": [
     {
       "case": "canonical-boundary",
@@ -1339,6 +1339,1107 @@
       "valid": false,
       "payload": {
         "reason": "conflict"
+      }
+    },
+    {
+      "case": "control-tasks-request",
+      "schema": "control-tasks-request.schema.json",
+      "valid": true,
+      "payload": {
+        "operation": "tasks",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+      }
+    },
+    {
+      "case": "control-tasks-request-unknown-field",
+      "schema": "control-tasks-request.schema.json",
+      "valid": false,
+      "payload": {
+        "operation": "tasks",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "argv": [
+          "sh"
+        ]
+      }
+    },
+    {
+      "case": "control-tasks-request-wrong-operation",
+      "schema": "control-tasks-request.schema.json",
+      "valid": false,
+      "payload": {
+        "operation": "task",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+      }
+    },
+    {
+      "case": "control-tasks-response",
+      "schema": "control-tasks-response.schema.json",
+      "valid": true,
+      "payload": {
+        "tasks": [
+          {
+            "id": "01JD3W0RKER0000000000000001",
+            "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+            "title": "Fix the flaky login test",
+            "state": "running",
+            "turn": {
+              "number": 2,
+              "state": "working"
+            },
+            "attention": null,
+            "pending_approvals": 0,
+            "publication": {
+              "kind": "pull_request",
+              "number": 42,
+              "url": "https://github.com/acme/app/pull/42",
+              "title": "Fix the flaky login test",
+              "draft": true
+            },
+            "pull_request": {
+              "number": 42,
+              "state": "open",
+              "draft": true,
+              "merged": false,
+              "html_url": "https://github.com/acme/app/pull/42"
+            },
+            "created_by": "01JD3C00RD1NAT0R0000000001",
+            "last_message": "Pushed the fix; opening the pull request next."
+          },
+          {
+            "id": "01JD3W0RKER0000000000000001",
+            "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+            "title": null,
+            "state": "created",
+            "turn": null,
+            "attention": null,
+            "pending_approvals": 0,
+            "publication": null,
+            "pull_request": null,
+            "created_by": "01JD3C00RD1NAT0R0000000001",
+            "last_message": null
+          }
+        ],
+        "truncated": false
+      }
+    },
+    {
+      "case": "control-task-request",
+      "schema": "control-task-request.schema.json",
+      "valid": true,
+      "payload": {
+        "operation": "task",
+        "id": "01JD3W0RKER0000000000000001"
+      }
+    },
+    {
+      "case": "control-task-request-unknown-field",
+      "schema": "control-task-request.schema.json",
+      "valid": false,
+      "payload": {
+        "operation": "task",
+        "id": "01JD3W0RKER0000000000000001",
+        "argv": [
+          "sh"
+        ]
+      }
+    },
+    {
+      "case": "control-task-request-wrong-operation",
+      "schema": "control-task-request.schema.json",
+      "valid": false,
+      "payload": {
+        "operation": "tasks",
+        "id": "01JD3W0RKER0000000000000001"
+      }
+    },
+    {
+      "case": "control-task-response",
+      "schema": "control-task-response.schema.json",
+      "valid": true,
+      "payload": {
+        "task": {
+          "id": "01JD3W0RKER0000000000000001",
+          "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+          "title": "Fix the flaky login test",
+          "state": "running",
+          "turn": {
+            "number": 1,
+            "state": "idle",
+            "stopReason": "end_turn"
+          },
+          "attention": "finished",
+          "pending_approvals": 0,
+          "publication": {
+            "kind": "branch",
+            "branch": "deck/fix-login",
+            "commit": "3f786850e387550fdab836ed7e6dc881de23001b"
+          },
+          "pull_request": null,
+          "created_by": "01JD3C00RD1NAT0R0000000001",
+          "last_message": "The test raced the session cookie; it now waits for the login redirect."
+        }
+      }
+    },
+    {
+      "case": "control-create-request",
+      "schema": "control-create-request.schema.json",
+      "valid": true,
+      "payload": {
+        "operation": "create",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "brief": "Fix the flaky login test\n\nIt fails one run in ten on CI.",
+        "budget": {
+          "tokens": 200000
+        }
+      }
+    },
+    {
+      "case": "control-create-request-unknown-field",
+      "schema": "control-create-request.schema.json",
+      "valid": false,
+      "payload": {
+        "operation": "create",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "brief": "Fix the flaky login test\n\nIt fails one run in ten on CI.",
+        "budget": {
+          "tokens": 200000
+        },
+        "argv": [
+          "sh"
+        ]
+      }
+    },
+    {
+      "case": "control-create-request-wrong-operation",
+      "schema": "control-create-request.schema.json",
+      "valid": false,
+      "payload": {
+        "operation": "task",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "brief": "Fix the flaky login test\n\nIt fails one run in ten on CI.",
+        "budget": {
+          "tokens": 200000
+        }
+      }
+    },
+    {
+      "case": "control-create-response",
+      "schema": "control-create-response.schema.json",
+      "valid": true,
+      "payload": {
+        "id": "01JD3W0RKER0000000000000001"
+      }
+    },
+    {
+      "case": "control-prompt-request",
+      "schema": "control-prompt-request.schema.json",
+      "valid": true,
+      "payload": {
+        "operation": "prompt",
+        "id": "01JD3W0RKER0000000000000001",
+        "text": "Open a draft pull request."
+      }
+    },
+    {
+      "case": "control-prompt-request-unknown-field",
+      "schema": "control-prompt-request.schema.json",
+      "valid": false,
+      "payload": {
+        "operation": "prompt",
+        "id": "01JD3W0RKER0000000000000001",
+        "text": "Open a draft pull request.",
+        "argv": [
+          "sh"
+        ]
+      }
+    },
+    {
+      "case": "control-prompt-request-wrong-operation",
+      "schema": "control-prompt-request.schema.json",
+      "valid": false,
+      "payload": {
+        "operation": "task",
+        "id": "01JD3W0RKER0000000000000001",
+        "text": "Open a draft pull request."
+      }
+    },
+    {
+      "case": "control-prompt-response",
+      "schema": "control-prompt-response.schema.json",
+      "valid": true,
+      "payload": {
+        "turn": 2
+      }
+    },
+    {
+      "case": "control-wait-request",
+      "schema": "control-wait-request.schema.json",
+      "valid": true,
+      "payload": {
+        "operation": "wait",
+        "id": "01JD3W0RKER0000000000000001",
+        "after_turn": 1,
+        "wait_ms": 300000
+      }
+    },
+    {
+      "case": "control-wait-request-unknown-field",
+      "schema": "control-wait-request.schema.json",
+      "valid": false,
+      "payload": {
+        "operation": "wait",
+        "id": "01JD3W0RKER0000000000000001",
+        "after_turn": 1,
+        "wait_ms": 300000,
+        "argv": [
+          "sh"
+        ]
+      }
+    },
+    {
+      "case": "control-wait-request-wrong-operation",
+      "schema": "control-wait-request.schema.json",
+      "valid": false,
+      "payload": {
+        "operation": "task",
+        "id": "01JD3W0RKER0000000000000001",
+        "after_turn": 1,
+        "wait_ms": 300000
+      }
+    },
+    {
+      "case": "control-wait-response",
+      "schema": "control-wait-response.schema.json",
+      "valid": true,
+      "payload": {
+        "timed_out": false,
+        "task": {
+          "id": "01JD3W0RKER0000000000000001",
+          "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+          "title": "Fix the flaky login test",
+          "state": "running",
+          "turn": {
+            "number": 2,
+            "state": "idle",
+            "stopReason": "end_turn"
+          },
+          "attention": "finished",
+          "pending_approvals": 0,
+          "publication": {
+            "kind": "branch",
+            "branch": "deck/fix-login",
+            "commit": "3f786850e387550fdab836ed7e6dc881de23001b"
+          },
+          "pull_request": null,
+          "created_by": "01JD3C00RD1NAT0R0000000001",
+          "last_message": "The test raced the session cookie; it now waits for the login redirect."
+        }
+      }
+    },
+    {
+      "case": "control-stop-request",
+      "schema": "control-stop-request.schema.json",
+      "valid": true,
+      "payload": {
+        "operation": "stop",
+        "id": "01JD3W0RKER0000000000000001"
+      }
+    },
+    {
+      "case": "control-stop-request-unknown-field",
+      "schema": "control-stop-request.schema.json",
+      "valid": false,
+      "payload": {
+        "operation": "stop",
+        "id": "01JD3W0RKER0000000000000001",
+        "argv": [
+          "sh"
+        ]
+      }
+    },
+    {
+      "case": "control-stop-request-wrong-operation",
+      "schema": "control-stop-request.schema.json",
+      "valid": false,
+      "payload": {
+        "operation": "task",
+        "id": "01JD3W0RKER0000000000000001"
+      }
+    },
+    {
+      "case": "control-stop-response",
+      "schema": "control-stop-response.schema.json",
+      "valid": true,
+      "payload": {
+        "id": "01JD3W0RKER0000000000000001",
+        "state": "stopped"
+      }
+    },
+    {
+      "case": "control-tasks-request-all-projects",
+      "schema": "control-tasks-request.schema.json",
+      "valid": true,
+      "payload": {
+        "operation": "tasks"
+      }
+    },
+    {
+      "case": "control-create-request-minimal",
+      "schema": "control-create-request.schema.json",
+      "valid": true,
+      "payload": {
+        "operation": "create",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "brief": "Hi"
+      }
+    },
+    {
+      "case": "control-create-request-no-brief",
+      "schema": "control-create-request.schema.json",
+      "valid": false,
+      "payload": {
+        "operation": "create",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+      }
+    },
+    {
+      "case": "control-create-request-title-too-long",
+      "schema": "control-create-request.schema.json",
+      "valid": false,
+      "payload": {
+        "operation": "create",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "brief": "Hi",
+        "title": "ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt"
+      }
+    },
+    {
+      "case": "control-create-request-empty-budget",
+      "schema": "control-create-request.schema.json",
+      "valid": false,
+      "payload": {
+        "operation": "create",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "brief": "Hi",
+        "budget": {}
+      }
+    },
+    {
+      "case": "control-create-request-zero-budget",
+      "schema": "control-create-request.schema.json",
+      "valid": false,
+      "payload": {
+        "operation": "create",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "brief": "Hi",
+        "budget": {
+          "requests": 0
+        }
+      }
+    },
+    {
+      "case": "control-create-request-argv-budget",
+      "schema": "control-create-request.schema.json",
+      "valid": false,
+      "payload": {
+        "operation": "create",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "brief": "Hi",
+        "budget": {
+          "tokens": 1,
+          "argv": "sh"
+        }
+      }
+    },
+    {
+      "case": "control-prompt-request-empty-text",
+      "schema": "control-prompt-request.schema.json",
+      "valid": false,
+      "payload": {
+        "operation": "prompt",
+        "id": "01JD3W0RKER0000000000000001",
+        "text": ""
+      }
+    },
+    {
+      "case": "control-wait-request-poll",
+      "schema": "control-wait-request.schema.json",
+      "valid": true,
+      "payload": {
+        "operation": "wait",
+        "id": "01JD3W0RKER0000000000000001",
+        "wait_ms": 0
+      }
+    },
+    {
+      "case": "control-wait-request-at-cap",
+      "schema": "control-wait-request.schema.json",
+      "valid": true,
+      "payload": {
+        "operation": "wait",
+        "id": "01JD3W0RKER0000000000000001",
+        "wait_ms": 300000
+      }
+    },
+    {
+      "case": "control-wait-request-over-cap",
+      "schema": "control-wait-request.schema.json",
+      "valid": false,
+      "payload": {
+        "operation": "wait",
+        "id": "01JD3W0RKER0000000000000001",
+        "wait_ms": 300001
+      }
+    },
+    {
+      "case": "control-wait-request-no-wait-ms",
+      "schema": "control-wait-request.schema.json",
+      "valid": false,
+      "payload": {
+        "operation": "wait",
+        "id": "01JD3W0RKER0000000000000001"
+      }
+    },
+    {
+      "case": "control-wait-request-negative-after",
+      "schema": "control-wait-request.schema.json",
+      "valid": false,
+      "payload": {
+        "operation": "wait",
+        "id": "01JD3W0RKER0000000000000001",
+        "after_turn": -1,
+        "wait_ms": 10
+      }
+    },
+    {
+      "case": "control-wait-response-timeout",
+      "schema": "control-wait-response.schema.json",
+      "valid": true,
+      "payload": {
+        "timed_out": true,
+        "task": {
+          "id": "01JD3W0RKER0000000000000001",
+          "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+          "title": "Fix the flaky login test",
+          "state": "running",
+          "turn": {
+            "number": 2,
+            "state": "working"
+          },
+          "attention": null,
+          "pending_approvals": 0,
+          "publication": {
+            "kind": "pull_request",
+            "number": 42,
+            "url": "https://github.com/acme/app/pull/42",
+            "title": "Fix the flaky login test",
+            "draft": true
+          },
+          "pull_request": {
+            "number": 42,
+            "state": "open",
+            "draft": true,
+            "merged": false,
+            "html_url": "https://github.com/acme/app/pull/42"
+          },
+          "created_by": "01JD3C00RD1NAT0R0000000001",
+          "last_message": "Pushed the fix; opening the pull request next."
+        }
+      }
+    },
+    {
+      "case": "control-wait-response-no-task",
+      "schema": "control-wait-response.schema.json",
+      "valid": false,
+      "payload": {
+        "timed_out": true
+      }
+    },
+    {
+      "case": "control-tasks-response-truncated",
+      "schema": "control-tasks-response.schema.json",
+      "valid": true,
+      "payload": {
+        "tasks": [
+          {
+            "id": "01JD3W0RKER0000000000000001",
+            "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+            "title": null,
+            "state": "created",
+            "turn": null,
+            "attention": null,
+            "pending_approvals": 0,
+            "publication": null,
+            "pull_request": null,
+            "created_by": "01JD3C00RD1NAT0R0000000001",
+            "last_message": null
+          }
+        ],
+        "truncated": true
+      }
+    },
+    {
+      "case": "control-tasks-response-no-truncated",
+      "schema": "control-tasks-response.schema.json",
+      "valid": false,
+      "payload": {
+        "tasks": []
+      }
+    },
+    {
+      "case": "control-prompt-response-turn-zero",
+      "schema": "control-prompt-response.schema.json",
+      "valid": false,
+      "payload": {
+        "turn": 0
+      }
+    },
+    {
+      "case": "control-stop-response-unknown-state",
+      "schema": "control-stop-response.schema.json",
+      "valid": false,
+      "payload": {
+        "id": "01JD3W0RKER0000000000000001",
+        "state": "paused"
+      }
+    },
+    {
+      "case": "control-create-response-extra-field",
+      "schema": "control-create-response.schema.json",
+      "valid": true,
+      "payload": {
+        "id": "01JD3W0RKER0000000000000001",
+        "future": 1
+      }
+    },
+    {
+      "case": "control-summary-idle",
+      "schema": "control-task-summary.schema.json",
+      "valid": true,
+      "payload": {
+        "id": "01JD3W0RKER0000000000000001",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "title": "Fix the flaky login test",
+        "state": "running",
+        "turn": {
+          "number": 1,
+          "state": "idle",
+          "stopReason": "end_turn"
+        },
+        "attention": "finished",
+        "pending_approvals": 0,
+        "publication": {
+          "kind": "branch",
+          "branch": "deck/fix-login",
+          "commit": "3f786850e387550fdab836ed7e6dc881de23001b"
+        },
+        "pull_request": null,
+        "created_by": "01JD3C00RD1NAT0R0000000001",
+        "last_message": "The test raced the session cookie; it now waits for the login redirect."
+      }
+    },
+    {
+      "case": "control-summary-working",
+      "schema": "control-task-summary.schema.json",
+      "valid": true,
+      "payload": {
+        "id": "01JD3W0RKER0000000000000001",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "title": "Fix the flaky login test",
+        "state": "running",
+        "turn": {
+          "number": 2,
+          "state": "working"
+        },
+        "attention": null,
+        "pending_approvals": 0,
+        "publication": {
+          "kind": "pull_request",
+          "number": 42,
+          "url": "https://github.com/acme/app/pull/42",
+          "title": "Fix the flaky login test",
+          "draft": true
+        },
+        "pull_request": {
+          "number": 42,
+          "state": "open",
+          "draft": true,
+          "merged": false,
+          "html_url": "https://github.com/acme/app/pull/42"
+        },
+        "created_by": "01JD3C00RD1NAT0R0000000001",
+        "last_message": "Pushed the fix; opening the pull request next."
+      }
+    },
+    {
+      "case": "control-summary-message-truncated",
+      "schema": "control-task-summary.schema.json",
+      "valid": true,
+      "payload": {
+        "id": "01JD3W0RKER0000000000000001",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "title": "Fix the flaky login test",
+        "state": "running",
+        "turn": {
+          "number": 1,
+          "state": "idle",
+          "stopReason": "end_turn"
+        },
+        "attention": "finished",
+        "pending_approvals": 0,
+        "publication": {
+          "kind": "branch",
+          "branch": "deck/fix-login",
+          "commit": "3f786850e387550fdab836ed7e6dc881de23001b"
+        },
+        "pull_request": null,
+        "created_by": "01JD3C00RD1NAT0R0000000001",
+        "last_message": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+        "last_message_truncated": true
+      }
+    },
+    {
+      "case": "control-summary-new",
+      "schema": "control-task-summary.schema.json",
+      "valid": true,
+      "payload": {
+        "id": "01JD3W0RKER0000000000000001",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "title": null,
+        "state": "created",
+        "turn": null,
+        "attention": null,
+        "pending_approvals": 0,
+        "publication": null,
+        "pull_request": null,
+        "created_by": "01JD3C00RD1NAT0R0000000001",
+        "last_message": null
+      }
+    },
+    {
+      "case": "control-summary-unknown-attention",
+      "schema": "control-task-summary.schema.json",
+      "valid": true,
+      "payload": {
+        "id": "01JD3W0RKER0000000000000001",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "title": "Fix the flaky login test",
+        "state": "running",
+        "turn": {
+          "number": 1,
+          "state": "idle",
+          "stopReason": "end_turn"
+        },
+        "attention": "something_new",
+        "pending_approvals": 0,
+        "publication": {
+          "kind": "branch",
+          "branch": "deck/fix-login",
+          "commit": "3f786850e387550fdab836ed7e6dc881de23001b"
+        },
+        "pull_request": null,
+        "created_by": "01JD3C00RD1NAT0R0000000001",
+        "last_message": "The test raced the session cookie; it now waits for the login redirect."
+      }
+    },
+    {
+      "case": "control-summary-title-too-long",
+      "schema": "control-task-summary.schema.json",
+      "valid": false,
+      "payload": {
+        "id": "01JD3W0RKER0000000000000001",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "title": "ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt",
+        "state": "running",
+        "turn": {
+          "number": 1,
+          "state": "idle",
+          "stopReason": "end_turn"
+        },
+        "attention": "finished",
+        "pending_approvals": 0,
+        "publication": {
+          "kind": "branch",
+          "branch": "deck/fix-login",
+          "commit": "3f786850e387550fdab836ed7e6dc881de23001b"
+        },
+        "pull_request": null,
+        "created_by": "01JD3C00RD1NAT0R0000000001",
+        "last_message": "The test raced the session cookie; it now waits for the login redirect."
+      }
+    },
+    {
+      "case": "control-summary-message-too-long",
+      "schema": "control-task-summary.schema.json",
+      "valid": false,
+      "payload": {
+        "id": "01JD3W0RKER0000000000000001",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "title": "Fix the flaky login test",
+        "state": "running",
+        "turn": {
+          "number": 1,
+          "state": "idle",
+          "stopReason": "end_turn"
+        },
+        "attention": "finished",
+        "pending_approvals": 0,
+        "publication": {
+          "kind": "branch",
+          "branch": "deck/fix-login",
+          "commit": "3f786850e387550fdab836ed7e6dc881de23001b"
+        },
+        "pull_request": null,
+        "created_by": "01JD3C00RD1NAT0R0000000001",
+        "last_message": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      }
+    },
+    {
+      "case": "control-summary-stop-reason-while-working",
+      "schema": "control-task-summary.schema.json",
+      "valid": false,
+      "payload": {
+        "id": "01JD3W0RKER0000000000000001",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "title": "Fix the flaky login test",
+        "state": "running",
+        "turn": {
+          "number": 2,
+          "state": "working",
+          "stopReason": "end_turn"
+        },
+        "attention": "finished",
+        "pending_approvals": 0,
+        "publication": {
+          "kind": "branch",
+          "branch": "deck/fix-login",
+          "commit": "3f786850e387550fdab836ed7e6dc881de23001b"
+        },
+        "pull_request": null,
+        "created_by": "01JD3C00RD1NAT0R0000000001",
+        "last_message": "The test raced the session cookie; it now waits for the login redirect."
+      }
+    },
+    {
+      "case": "control-summary-missing-created-by",
+      "schema": "control-task-summary.schema.json",
+      "valid": false,
+      "payload": {
+        "id": "01JD3W0RKER0000000000000001",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "title": "Fix the flaky login test",
+        "state": "running",
+        "turn": {
+          "number": 1,
+          "state": "idle",
+          "stopReason": "end_turn"
+        },
+        "attention": "finished",
+        "pending_approvals": 0,
+        "publication": {
+          "kind": "branch",
+          "branch": "deck/fix-login",
+          "commit": "3f786850e387550fdab836ed7e6dc881de23001b"
+        },
+        "pull_request": null,
+        "last_message": "The test raced the session cookie; it now waits for the login redirect."
+      }
+    },
+    {
+      "case": "control-summary-bad-lifecycle",
+      "schema": "control-task-summary.schema.json",
+      "valid": false,
+      "payload": {
+        "id": "01JD3W0RKER0000000000000001",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "title": "Fix the flaky login test",
+        "state": "paused",
+        "turn": {
+          "number": 1,
+          "state": "idle",
+          "stopReason": "end_turn"
+        },
+        "attention": "finished",
+        "pending_approvals": 0,
+        "publication": {
+          "kind": "branch",
+          "branch": "deck/fix-login",
+          "commit": "3f786850e387550fdab836ed7e6dc881de23001b"
+        },
+        "pull_request": null,
+        "created_by": "01JD3C00RD1NAT0R0000000001",
+        "last_message": "The test raced the session cookie; it now waits for the login redirect."
+      }
+    },
+    {
+      "case": "control-summary-bad-publication",
+      "schema": "control-task-summary.schema.json",
+      "valid": false,
+      "payload": {
+        "id": "01JD3W0RKER0000000000000001",
+        "project": "git:4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+        "title": "Fix the flaky login test",
+        "state": "running",
+        "turn": {
+          "number": 1,
+          "state": "idle",
+          "stopReason": "end_turn"
+        },
+        "attention": "finished",
+        "pending_approvals": 0,
+        "publication": {
+          "kind": "branch",
+          "branch": "x"
+        },
+        "pull_request": null,
+        "created_by": "01JD3C00RD1NAT0R0000000001",
+        "last_message": "The test raced the session cookie; it now waits for the login redirect."
+      }
+    },
+    {
+      "case": "control-error-bad_request",
+      "schema": "control-error.schema.json",
+      "valid": true,
+      "payload": {
+        "error": {
+          "message": "refused",
+          "type": "deck_control_bad_request",
+          "code": "deck_control_bad_request"
+        },
+        "retryable": false
+      }
+    },
+    {
+      "case": "control-error-bad_request-wrong-retryable",
+      "schema": "control-error.schema.json",
+      "valid": false,
+      "payload": {
+        "error": {
+          "message": "refused",
+          "type": "deck_control_bad_request",
+          "code": "deck_control_bad_request"
+        },
+        "retryable": true
+      }
+    },
+    {
+      "case": "control-error-unauthorized",
+      "schema": "control-error.schema.json",
+      "valid": true,
+      "payload": {
+        "error": {
+          "message": "refused",
+          "type": "deck_control_unauthorized",
+          "code": "deck_control_unauthorized"
+        },
+        "retryable": false
+      }
+    },
+    {
+      "case": "control-error-unauthorized-wrong-retryable",
+      "schema": "control-error.schema.json",
+      "valid": false,
+      "payload": {
+        "error": {
+          "message": "refused",
+          "type": "deck_control_unauthorized",
+          "code": "deck_control_unauthorized"
+        },
+        "retryable": true
+      }
+    },
+    {
+      "case": "control-error-scope",
+      "schema": "control-error.schema.json",
+      "valid": true,
+      "payload": {
+        "error": {
+          "message": "refused",
+          "type": "deck_control_scope",
+          "code": "deck_control_scope"
+        },
+        "retryable": false
+      }
+    },
+    {
+      "case": "control-error-scope-wrong-retryable",
+      "schema": "control-error.schema.json",
+      "valid": false,
+      "payload": {
+        "error": {
+          "message": "refused",
+          "type": "deck_control_scope",
+          "code": "deck_control_scope"
+        },
+        "retryable": true
+      }
+    },
+    {
+      "case": "control-error-cap",
+      "schema": "control-error.schema.json",
+      "valid": true,
+      "payload": {
+        "error": {
+          "message": "refused",
+          "type": "deck_control_cap",
+          "code": "deck_control_cap"
+        },
+        "retryable": true
+      }
+    },
+    {
+      "case": "control-error-cap-wrong-retryable",
+      "schema": "control-error.schema.json",
+      "valid": false,
+      "payload": {
+        "error": {
+          "message": "refused",
+          "type": "deck_control_cap",
+          "code": "deck_control_cap"
+        },
+        "retryable": false
+      }
+    },
+    {
+      "case": "control-error-refused",
+      "schema": "control-error.schema.json",
+      "valid": true,
+      "payload": {
+        "error": {
+          "message": "refused",
+          "type": "deck_control_refused",
+          "code": "deck_control_refused"
+        },
+        "retryable": false
+      }
+    },
+    {
+      "case": "control-error-refused-wrong-retryable",
+      "schema": "control-error.schema.json",
+      "valid": false,
+      "payload": {
+        "error": {
+          "message": "refused",
+          "type": "deck_control_refused",
+          "code": "deck_control_refused"
+        },
+        "retryable": true
+      }
+    },
+    {
+      "case": "control-error-unknown",
+      "schema": "control-error.schema.json",
+      "valid": true,
+      "payload": {
+        "error": {
+          "message": "refused",
+          "type": "deck_control_unknown",
+          "code": "deck_control_unknown"
+        },
+        "retryable": false
+      }
+    },
+    {
+      "case": "control-error-unknown-wrong-retryable",
+      "schema": "control-error.schema.json",
+      "valid": false,
+      "payload": {
+        "error": {
+          "message": "refused",
+          "type": "deck_control_unknown",
+          "code": "deck_control_unknown"
+        },
+        "retryable": true
+      }
+    },
+    {
+      "case": "control-error-busy",
+      "schema": "control-error.schema.json",
+      "valid": true,
+      "payload": {
+        "error": {
+          "message": "refused",
+          "type": "deck_control_busy",
+          "code": "deck_control_busy"
+        },
+        "retryable": true
+      }
+    },
+    {
+      "case": "control-error-busy-wrong-retryable",
+      "schema": "control-error.schema.json",
+      "valid": false,
+      "payload": {
+        "error": {
+          "message": "refused",
+          "type": "deck_control_busy",
+          "code": "deck_control_busy"
+        },
+        "retryable": false
+      }
+    },
+    {
+      "case": "control-error-unavailable",
+      "schema": "control-error.schema.json",
+      "valid": true,
+      "payload": {
+        "error": {
+          "message": "refused",
+          "type": "deck_control_unavailable",
+          "code": "deck_control_unavailable"
+        },
+        "retryable": true
+      }
+    },
+    {
+      "case": "control-error-unavailable-wrong-retryable",
+      "schema": "control-error.schema.json",
+      "valid": false,
+      "payload": {
+        "error": {
+          "message": "refused",
+          "type": "deck_control_unavailable",
+          "code": "deck_control_unavailable"
+        },
+        "retryable": false
+      }
+    },
+    {
+      "case": "control-error-type-differs",
+      "schema": "control-error.schema.json",
+      "valid": false,
+      "payload": {
+        "error": {
+          "message": "x",
+          "type": "deck_control_busy",
+          "code": "deck_control_cap"
+        },
+        "retryable": true
+      }
+    },
+    {
+      "case": "control-error-github-code",
+      "schema": "control-error.schema.json",
+      "valid": false,
+      "payload": {
+        "error": {
+          "message": "x",
+          "type": "deck_bad_request",
+          "code": "deck_bad_request"
+        },
+        "retryable": false
+      }
+    },
+    {
+      "case": "control-error-no-retryable",
+      "schema": "control-error.schema.json",
+      "valid": false,
+      "payload": {
+        "error": {
+          "message": "x",
+          "type": "deck_control_unknown",
+          "code": "deck_control_unknown"
+        }
       }
     }
   ]
