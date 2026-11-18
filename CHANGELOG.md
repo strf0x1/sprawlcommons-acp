@@ -2,7 +2,7 @@
 
 Contract versions are semver (see `SPEC.md` §2).
 
-## 1.5.0 — unreleased
+## 1.5.0 — 2026-11-18
 
 Additive: a coordinator no longer has to find its project key (SPEC.md
 §13.3; deck#198). Found in the first live coordinator run, where the model
