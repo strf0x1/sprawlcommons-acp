@@ -21,6 +21,7 @@ in `conformance/matrix.json`; this page is the release view.
 | 1.2.0 | 1 | pending adoption | pending adoption | GitHub operation API (§11); ACP names unchanged |
 | 1.3.0 | 1 | pending adoption | pending adoption | idempotent prompts (§12); ACP names unchanged |
 | 1.4.0 | 1 | pending adoption | pending adoption | coordinator task control (§13); ACP names unchanged |
+| 1.5.0 | 1 | pending adoption | pending adoption | coordinator project defaults (§13.3); ACP names unchanged |
 | 2.0.0 | 1, 2 rules declared | TBD | TBD | bare names removed |
 
 Implementations declare the contract version they vendor (Construct:
@@ -103,3 +104,14 @@ The key is v2's `PromptRequest.idempotencyKey` under a v1 `_meta` key. Contract
 The wire is new, so no gateway release before 1.4.0 needs compatibility:
 Deck (deck#152) and Construct (construct#222) pin 1.4.0 in the same wave.
 No `initialize` field is added, so every ACP pairing above is unchanged.
+
+## Coordinator project defaults (1.5.0)
+
+| Deck (server) | Construct (client) | Result |
+|---|---|---|
+| 1.4 | 1.5 | A `create` without `project` is `deck_control_bad_request`; `tasks` has no `projects`. A client that may meet a 1.4 server sends `project` (it is in every summary) |
+| 1.5 | 1.4 | The client always sends `project` and ignores `projects`; nothing changes |
+| 1.5 | 1.5 | The client omits `project` for a one-project coordinator and learns the set from `tasks` |
+
+Deck and Construct pin 1.5.0 in the same wave, so the first row only occurs
+across an unpaired upgrade.

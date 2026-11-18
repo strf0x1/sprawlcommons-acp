@@ -2,6 +2,23 @@
 
 Contract versions are semver (see `SPEC.md` §2).
 
+## 1.5.0 — unreleased
+
+Additive: a coordinator no longer has to find its project key (SPEC.md
+§13.3; deck#198). Found in the first live coordinator run, where the model
+guessed project names, was refused, and stopped until the user typed the key.
+
+- `create`'s `project` is optional. Omitted, the server uses the
+  coordinator's project when its set has exactly one, and otherwise refuses
+  with `deck_control_bad_request` naming the set's ids.
+- `tasks` replies carry `projects`, the coordinator's whole project set as
+  `{ id, name }`, even when no task exists yet.
+- A `deck_control_scope` message names the project ids in the set.
+- Schemas: `control-create-request` no longer requires `project`;
+  `control-tasks-response` requires `projects`. Payload cases and
+  `create-default-project-{vm,local}` exchanges; `tasks` exchanges carry
+  `projects`.
+
 ## 1.4.0 — 2026-11-17
 
 Additive: the coordinator task-control API between a coordinator task and
