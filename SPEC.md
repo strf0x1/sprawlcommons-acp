@@ -1,7 +1,8 @@
 # SprawlCommons ACP extension contract
 
-Status: normative. Contract version `1.3.0` (see `VERSION`). Applies to ACP
-protocol version 1, and to the HTTP GitHub operation API of §11.
+Status: normative. Contract version `1.4.0` (see `VERSION`). Applies to ACP
+protocol version 1, to the HTTP GitHub operation API of §11, and to the HTTP
+coordinator task-control API of §13.
 
 The keywords MUST, MUST NOT, SHOULD and MAY are as in RFC 2119.
 
@@ -18,7 +19,9 @@ ACP only fixes the standard vocabulary. This contract fixes the extensions the
 two projects share, and the compatibility window while released peers still
 speak the old names. Since 1.2.0 it also fixes the GitHub operation API (§11):
 an HTTP wire between an agent in a Deck sandbox and Deck's host gateway,
-which both projects implement and which therefore versions here.
+which both projects implement and which therefore versions here. Since
+1.4.0 it also fixes the coordinator task-control API (§13), the same kind of
+HTTP wire between a coordinator task and Deck's host gateway.
 
 ACP reserves `_`-prefixed methods for extensions and, in v2, reserves
 unprefixed `_meta` keys. Extension `_meta` keys therefore use a reverse-DNS
@@ -32,7 +35,7 @@ Two axes are independent and MUST both be declared by an implementation:
 | Axis | This release | Meaning |
 |---|---|---|
 | `acp` | `1` | The ACP protocol version the peer speaks |
-| `contract` | `1.3.0` | This document and its schemas |
+| `contract` | `1.4.0` | This document and its schemas |
 
 Contract versions are semver:
 
@@ -341,11 +344,12 @@ which ACP v2 `_meta` reservation it follows.
 
 Normative artifacts:
 
-- `schema/*.schema.json` — ACP payload, boundary HTTP observation and GitHub
-  operation (`github-*`) shape.
+- `schema/*.schema.json` — ACP payload, boundary HTTP observation, GitHub
+  operation (`github-*`) and coordinator control (`control-*`) shape.
 - `conformance/matrix.json` — names, negotiation cases, accepted names, and
   under `github` the operation table, limits, refusal table and publish
-  framing cases.
+  framing cases, and under `control` the coordinator operation table,
+  limits, refusal table and request exchanges (§13).
 - `conformance/payloads.json` — valid and invalid payload examples for every schema.
 - `VERSION` — the contract version.
 
@@ -627,3 +631,207 @@ key. Like any 1.2 client, it cannot tell whether a prompt whose response was
 lost ran, so it SHOULD ask the user rather than resend on its own. A 1.3 agent
 that advertises the capability and gets a malformed key rejects it. It never
 runs the prompt without the key, so a client bug fails loudly.
+
+## 13. Coordinator task control (since 1.4.0)
+
+A project coordinator is a task whose agent directs other tasks: it creates
+workers, prompts them, waits for their turns and stops them (Deck ADR 0011
+§4). It does so through one closed HTTP operation endpoint on Deck's host
+gateway. This section is the wire between that gateway (the **server**,
+implemented by Deck's `deckd`) and the agent's tool that calls it (the
+**client**, implemented by Construct's `deck` tool). Like §11 it is not an
+ACP method; it versions here because both implementations depend on it.
+What a coordinator may do (its project set, caps and budgets) is the user's
+policy, held by the host and never editable by the guest; this section fixes
+only what the client observes of it.
+
+The gateway carries and the host decides. No operation here asks the user:
+an operation outside policy is refused with a code, the coordinator reports
+it, and the user changes the policy in Deck. There is no approval,
+credential, grant, destroy, resume, start, budget-change or publication
+operation, and no full-transcript read.
+
+### 13.1 Discovery
+
+- The server is reachable at the URL in the agent's environment variable
+  `DECK_CONTROL_URL`. The host sets it only for a coordinator task, and only
+  when it serves this surface. A client exposes its control tool only when
+  the variable is set; an absent variable means "this task controls no other
+  task". No `initialize` capability is defined or needed.
+- The value is exactly `http://<host>:<port>` with `<host>` a loopback
+  literal, `127.0.0.1` or `[::1]`, and no userinfo, path, query, fragment or
+  trailing slash. The client sends to `<DECK_CONTROL_URL>/control`. A client
+  MUST treat any other value as absent and MUST NOT send to it.
+- In a VM task the address is the guest's loopback, mapped by `deck-egress`
+  to the host (Deck ADR 0004 §1); only the guest can reach it. A coordinator
+  on Deck's local backend gets a host loopback address, which other host
+  processes can also reach; the host then also sets `DECK_CONTROL_TOKEN`
+  (§13.2).
+- Worker tasks never get either variable.
+
+### 13.2 Authorization
+
+`DECK_CONTROL_TOKEN` is a per-task bearer token: 32 to 256 characters of
+the RFC 6750 `b64token` alphabet (`A-Z a-z 0-9 - . _ ~ + /`, then optional
+`=`). The host generates it from a cryptographically secure source with at
+least 128 bits of entropy, gives each coordinator task its own, and MUST set
+it whenever `DECK_CONTROL_URL` names a host address. It MAY leave it unset
+when the address is a VM guest's loopback.
+
+- **Token set.** The client sends `Authorization: Bearer <token>` on every
+  request, reading the variable when it sends. The server checks the header
+  before it reads the body, the path or the method: a missing header, more
+  than one, another scheme, or a token that differs (compared in constant
+  time; the scheme name is case-insensitive) is refused with 401,
+  `deck_control_unauthorized` (`retryable: false`) and
+  `WWW-Authenticate: Bearer realm="deck-control"`. An unauthenticated caller
+  learns nothing else, not even whether its body was well formed.
+- **Token unset.** The client sends no `Authorization` header. The server
+  neither requires nor checks one, and ignores one that arrives.
+- The token appears in no reply, no task summary, no event, no log and never
+  in `DECK_CONTROL_URL`. The server MUST NOT send CORS
+  (`Access-Control-Allow-*`) headers, so a web page cannot attach the header
+  from a browser.
+
+The token keeps other host processes (other users' processes, other tasks'
+agents, a local web page) off the surface. It does not confine the agent
+itself: every process the coordinator's agent runs inherits its environment
+and can use the token. What the coordinator may do is bounded by its policy,
+which the host enforces on every operation, with or without a token.
+
+### 13.3 Requests
+
+Every request is `POST /control` over HTTP/1.1, one request per connection,
+with a `content-length` and a body of one JSON object of at most 32768
+bytes. Chunked bodies are refused. The object's `operation` field names one
+operation of a closed set:
+
+| Operation | Input | Success reply | Request schema | Success schema |
+|---|---|---|---|---|
+| `tasks` | `project?` | `{ tasks, truncated }`: at most 200 summaries | `control-tasks-request` | `control-tasks-response` |
+| `task` | `id` | `{ task }`: one summary | `control-task-request` | `control-task-response` |
+| `create` | `project`, `brief`, `title?`, `budget?` | `{ id }` | `control-create-request` | `control-create-response` |
+| `prompt` | `id`, `text` | `{ turn }` | `control-prompt-request` | `control-prompt-response` |
+| `wait` | `id`, `after_turn?`, `wait_ms` | `{ timed_out, task }` | `control-wait-request` | `control-wait-response` |
+| `stop` | `id` | `{ id, state }` | `control-stop-request` | `control-stop-response` |
+
+Requests are closed: `additionalProperties` is false, and the server refuses
+an unknown field with `deck_control_bad_request` rather than ignore it. A
+missing or non-string `operation` is `deck_control_bad_request` (400); a
+string that is not in the set is `deck_control_refused` (403), and the
+message lists the set. Another path is `deck_control_bad_request` (404),
+another method 405, no `content-length` 411, and a larger body 413, refused
+before it is read.
+
+**Scope.** A coordinator's scope is the project set in its policy. A task is
+in scope when its project is. A project outside the set is
+`deck_control_scope`. A task outside the set is `deck_control_unknown`,
+exactly as a task that does not exist, so the surface never discloses tasks
+the coordinator may not see. The coordinator itself is never in `tasks`.
+`prompt` or `stop` naming any coordinator, and `wait` naming the caller
+itself, are `deck_control_refused`.
+
+- **`tasks`** lists the summaries (§13.4) of tasks in scope, limited to
+  `project` when it is given, most recently created first. At most 200 are
+  returned; `truncated` is true when more exist.
+- **`task`** returns one summary.
+- **`create`** records a worker in `project`, starts it, and delivers `brief`
+  as its first prompt once its session is up. It returns the new id as soon
+  as the task is recorded, before the agent has started. The worker's
+  `created_by` is the coordinator's id. The worker runs the project's recorded
+  agent command under the project's GitHub policy: the coordinator cannot
+  choose a command, a repository or a base. `title` (1 to 80 characters)
+  replaces the default title. `budget` (`requests` and/or `tokens`, positive
+  integers) may lower the policy's per-worker budget, never raise it: a value
+  above it is `deck_control_refused`, as is a project with no recorded agent
+  command. Reaching the policy's concurrency cap (live workers this
+  coordinator created) or creation rate (per rolling hour) is
+  `deck_control_cap`.
+- **`prompt`** sends `text` to an idle task and returns the number of the
+  turn it began (§5.2: turns count from 0 and the first prompt begins turn 1).
+  A task whose turn is `working` or `waiting` is `deck_control_busy`. A task
+  that was just created and has no session yet is waited for, at most 60
+  seconds, and is then `deck_control_busy`. A task that is `stopped`,
+  `failed` or `destroyed` is `deck_control_refused`: this surface does not
+  resume tasks.
+- **`wait`** is a long poll. `wait_ms` is required, an integer from 0 to
+  300000 (300 s); a larger value is `deck_control_bad_request`, never
+  silently shortened. `after_turn` defaults to 0. The server replies
+  `timed_out: false` as soon as one of these holds, checking first when the
+  request arrives:
+  1. the task's lifecycle state is `stopped`, `failed` or `destroyed`;
+  2. its turn is `idle` and its number is greater than `after_turn`;
+  3. a pending approval or a `waiting` permission question appeared after
+     the request arrived.
+
+  Otherwise, after `wait_ms`, it replies `timed_out: true`. Either way the
+  reply carries the task's current summary, and its status is 200: the time
+  running out is the expected end of a long poll, not a failure, and the
+  reply answers the same question a `task` would. After `create`,
+  `wait { id, wait_ms }` returns when the brief's turn ends; after `prompt`
+  returned `{ turn: n }`, `wait { id, after_turn: n - 1, wait_ms }` returns
+  when that turn ends. A client's HTTP timeout MUST exceed `wait_ms`.
+- **`stop`** stops the task's agent and returns its lifecycle state once the
+  stop is confirmed or has failed. Stopping a task that is not running
+  returns its state unchanged. The task's record stays; nothing is destroyed.
+
+### 13.4 Task summary and replies
+
+A success is `200` with the operation's success schema. Replies are open: a
+client MUST ignore fields it does not know. A reply body is at most 1 MiB.
+
+A task summary (`control-task-summary`) has:
+
+| Field | Meaning |
+|---|---|
+| `id` | The task's id. |
+| `project` | Its project key (Deck ADR 0010). |
+| `title` | The first line of its first prompt, or `create`'s `title`; at most 80 characters; `null` before either exists. |
+| `state` | Lifecycle: `created`, `running`, `stopped`, `failed` or `destroyed`. |
+| `turn` | `{ number, state, stopReason? }` with §5.2's meaning and vocabulary; `null` before the host has seen a turn. |
+| `attention` | Why it needs a person now, or `null`: `approval`, `question`, `finished` or `failed` (Deck ADR 0010 §6). A reader treats an unknown value as "needs a person". |
+| `pending_approvals` | How many boundary approvals for it are pending in the host's queue. |
+| `publication` | Its latest publication (Deck ADR 0008 §8), or `null`: `{ kind: "branch", branch, commit }` or `{ kind: "pull_request", number, url, title, draft }`. |
+| `pull_request` | The last read live state of its pull request, or `null`: `{ number, state, draft, merged, html_url }`. |
+| `created_by` | The coordinator that created it, or `null` for a task the user created. |
+| `last_message` | The text of its last assistant message, at most 2048 bytes of UTF-8 cut at a character boundary, or `null`. `last_message_truncated` is true when it was cut. |
+
+A summary never carries a transcript, a prompt other than its title, a
+credential or a token.
+
+### 13.5 Refusals
+
+Every non-2xx body, including transport refusals, is `control-error`:
+`error.{message, type, code}` with `type` equal to `code`, and `retryable`.
+Messages are at most 4096 characters and never contain a credential or the
+token.
+
+| Code | Status | Retryable | The client should |
+|---|---|---|---|
+| `deck_control_bad_request` | 400, 404, 405, 411, 413 | no | Fix the request. |
+| `deck_control_unauthorized` | 401 | no | Stop: `DECK_CONTROL_TOKEN` is missing, stale or not sent. |
+| `deck_control_scope` | 403 | no | Report it: the project is outside this coordinator's project set. |
+| `deck_control_cap` | 403 | yes | Report it, then retry after a worker ends or the hour rolls; the user may raise the cap. |
+| `deck_control_refused` | 403 | no | Do something else: the host will not do this as asked (an operation outside the set, a budget above the ceiling, a project with no agent command, a stopped task, the coordinator itself). |
+| `deck_control_unknown` | 404 | no | The task does not exist or is outside scope. |
+| `deck_control_busy` | 409 | yes | Wait for the task's turn to end (`wait`), then prompt again. |
+| `deck_control_unavailable` | 503 | yes | Retry later: the gateway could not reach `deckd`. |
+
+A client MUST surface the message to the model. A `retryable: false`
+refusal MUST NOT be retried unchanged, and no refusal is a reason to reach
+the host by another route.
+
+`matrix.json` `control.exchanges` carries whole requests (token, headers,
+body) and the status, code or reply a server must produce for each, with and
+without the bearer header; both implementations SHOULD test against them.
+
+### 13.6 Compatibility
+
+New in 1.4.0 and additive: no ACP name, capability or payload defined
+earlier changes, and no `initialize` field is added. A 1.3 Deck never sets
+`DECK_CONTROL_URL`, so a 1.4 Construct offers no control tool; a 1.3
+Construct ignores the variables, so its coordinator simply cannot control
+tasks. Within 1.x, fields are only added to replies, a new request field is
+optional and refused by a server that does not know it, a new refusal code is
+a minor release, and a new operation is a minor release that an older server
+refuses with `deck_control_refused`.

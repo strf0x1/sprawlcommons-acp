@@ -2,6 +2,39 @@
 
 Contract versions are semver (see `SPEC.md` §2).
 
+## 1.4.0 — candidate
+
+Additive: the coordinator task-control API between a coordinator task and
+Deck's host gateway (SPEC.md §13; Deck ADR 0011 §4). No ACP name,
+negotiation, capability or existing payload changes.
+
+- `POST /control` with one JSON operation of at most 32768 bytes, from the
+  closed set `tasks`, `task`, `create`, `prompt`, `wait`, `stop`; requests are
+  closed (unknown fields refused), replies are open.
+- Discovery through `DECK_CONTROL_URL` (a loopback `http://host:port`), set
+  only for a coordinator; no `initialize` capability.
+- Optional per-task bearer token `DECK_CONTROL_TOKEN`, required by the host
+  whenever the address is on host loopback (local coordinators): a missing,
+  wrong or other-scheme `Authorization` header is 401
+  `deck_control_unauthorized`, checked before the body. Without the variable
+  (VM coordinators) no header is sent and any header is ignored. The token
+  keeps other host processes off the surface; it does not confine the agent.
+- Task summary: id, project, title (≤ 80), lifecycle state, turn, attention,
+  pending approvals, publication, pull request, `created_by`, last assistant
+  message (≤ 2048 bytes). `tasks` returns at most 200 with `truncated`.
+- `wait` is a long poll with a required `wait_ms` of 0 to 300000; it wakes on
+  a terminal lifecycle, an idle turn after `after_turn`, or new attention. A
+  timeout is `200` with `timed_out: true` and the current summary.
+- One refusal body (`control-error`) for every non-2xx reply, with the
+  eight-code table: `deck_control_bad_request` (400/404/405/411/413),
+  `deck_control_unauthorized` (401), `deck_control_scope`, `deck_control_cap`,
+  `deck_control_refused` (403), `deck_control_unknown` (404),
+  `deck_control_busy` (409), `deck_control_unavailable` (503), each with a
+  fixed `retryable`. A task outside scope is `deck_control_unknown`.
+- Fourteen `control-*` schemas, payload fixtures, and `matrix.json` `control`
+  with 45 request exchanges (with and without the bearer header) that
+  `scripts/check.py` replays through the gateway's own rules.
+
 ## 1.3.0 — 2026-11-17
 
 Additive: idempotent prompts (SPEC.md §12). A client can resend a

@@ -20,6 +20,7 @@ in `conformance/matrix.json`; this page is the release view.
 | 1.1.0 | 1 | pending adoption | pending adoption | timed scope and absolute expiry metadata; names unchanged |
 | 1.2.0 | 1 | pending adoption | pending adoption | GitHub operation API (§11); ACP names unchanged |
 | 1.3.0 | 1 | pending adoption | pending adoption | idempotent prompts (§12); ACP names unchanged |
+| 1.4.0 | 1 | pending adoption | pending adoption | coordinator task control (§13); ACP names unchanged |
 | 2.0.0 | 1, 2 rules declared | TBD | TBD | bare names removed |
 
 Implementations declare the contract version they vendor (Construct:
@@ -89,3 +90,16 @@ as the client.
 
 The key is v2's `PromptRequest.idempotencyKey` under a v1 `_meta` key. Contract
 2.0 moves it to the top-level parameter without changing what it means.
+
+## Coordinator task control (1.4.0)
+
+| Deck (server) | Construct (client) | Result |
+|---|---|---|
+| ≤ 1.3 | 1.4 | No `DECK_CONTROL_URL`; the client offers no control tool |
+| 1.4 | ≤ 1.3 | The variables are ignored; the coordinator cannot control tasks |
+| 1.4 | 1.4, VM coordinator | Guest loopback, no `DECK_CONTROL_TOKEN`, no header |
+| 1.4 | 1.4, local coordinator | Host loopback with `DECK_CONTROL_TOKEN`; every request carries `Authorization: Bearer`, or is 401 |
+
+The wire is new, so no gateway release before 1.4.0 needs compatibility:
+Deck (deck#152) and Construct (construct#222) pin 1.4.0 in the same wave.
+No `initialize` field is added, so every ACP pairing above is unchanged.

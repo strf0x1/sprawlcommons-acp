@@ -116,6 +116,125 @@ def check_github(github, schemas, validators, spec):
         errors.append("framing cases must cover full, incremental, extra refs, missing and oversize bundles")
 
 
+def control_gate(case, ctl):
+    """What the gateway itself concludes from one exchange before deckd decides
+    anything: (status, code), or None when the request reaches deckd."""
+    token = case["token"]
+    headers = {k.lower(): v for k, v in case["headers"].items()}
+    if token is not None:
+        scheme, _, credential = headers.get(ctl["authorization"]["header"], "").partition(" ")
+        if scheme.lower() != ctl["authorization"]["scheme"].lower() or credential != token:
+            return 401, "deck_control_unauthorized"
+    if case.get("path", ctl["path"]) != ctl["path"]:
+        return 404, "deck_control_bad_request"
+    if case.get("method", ctl["method"]) != ctl["method"]:
+        return 405, "deck_control_bad_request"
+    body = case["body"]
+    if len(json.dumps(body).encode()) > ctl["limits"]["body_bytes"]:
+        return 413, "deck_control_bad_request"
+    op = body.get("operation") if isinstance(body, dict) else None
+    if not isinstance(op, str):
+        return 400, "deck_control_bad_request"
+    ops = {o["operation"]: o for o in ctl["operations"]}
+    if op not in ops:
+        return 403, "deck_control_refused"
+    if not ctl["_validators"][ops[op]["request"]].is_valid(body):
+        return 400, "deck_control_bad_request"
+    return None
+
+
+def check_control(ctl, schemas, validators, spec):
+    if not ctl:
+        errors.append("matrix.control is missing (contract 1.4+)")
+        return
+    by_name = {p.name: s for p, s in schemas.items()}
+    ops = ctl["operations"]
+    if [op["operation"] for op in ops] != ["tasks", "task", "create", "prompt", "wait", "stop"]:
+        errors.append("the control operation set is closed at six operations")
+    if ctl["capability"] is not None:
+        errors.append("the control surface has no initialize capability")
+    for term in (ctl["path"], ctl["environment"]["url"], ctl["environment"]["token"], "WWW-Authenticate",
+                 ctl["authorization"]["challenge"], str(ctl["limits"]["body_bytes"]),
+                 str(ctl["limits"]["wait_ms_max"]), "control.exchanges"):
+        if term not in spec:
+            errors.append(f"SPEC.md §13 never names {term}")
+    for op in ops:
+        for key in ("request", "response"):
+            if op[key] not in validators:
+                errors.append(f"{op['operation']}: {op[key]} is not a schema")
+            elif f"`{op[key].removesuffix('.schema.json')}`" not in spec:
+                errors.append(f"SPEC.md §13 never names `{op[key].removesuffix('.schema.json')}`")
+        if f"`{op['operation']}`" not in spec:
+            errors.append(f"SPEC.md §13 never names `{op['operation']}`")
+        request = by_name.get(op["request"], {})
+        if request.get("properties", {}).get("operation", {}).get("const") != op["operation"]:
+            errors.append(f"{op['request']} does not pin operation {op['operation']}")
+        if request.get("additionalProperties") is not False:
+            errors.append(f"{op['request']} must be closed")
+    limits = ctl["limits"]
+    wait = by_name.get("control-wait-request.schema.json", {}).get("properties", {}).get("wait_ms", {})
+    if (wait.get("minimum"), wait.get("maximum")) != (0, limits["wait_ms_max"]):
+        errors.append("control-wait-request wait_ms bounds disagree with limits.wait_ms_max")
+    tasks = by_name.get("control-tasks-response.schema.json", {}).get("properties", {}).get("tasks", {})
+    if tasks.get("maxItems") != limits["tasks"]:
+        errors.append("control-tasks-response maxItems disagrees with limits.tasks")
+    summary = by_name.get(ctl["summary"], {}).get("properties", {})
+    if summary.get("title", {}).get("maxLength") != limits["title_chars"] or \
+            summary.get("last_message", {}).get("maxLength") != limits["last_message_bytes"]:
+        errors.append("control-task-summary bounds disagree with limits")
+    codes = [r["code"] for r in ctl["refusals"]]
+    error_schema = by_name.get(ctl["error"], {})
+    if error_schema.get("properties", {}).get("error", {}).get("properties", {}).get("code", {}).get("enum") != codes:
+        errors.append("control-error code enum disagrees with matrix.control.refusals")
+    for code in codes:
+        if f"`{code}`" not in spec:
+            errors.append(f"SPEC.md §13.5 never names `{code}`")
+    refusals = {r["code"]: r for r in ctl["refusals"]}
+    timeout = ctl["timeout"]
+    ctl = {**ctl, "_validators": validators}
+    seen, timeouts = set(), 0
+    for case in ctl["exchanges"]:
+        name, want = case["case"], case["expect"]
+        if name in seen:
+            errors.append(f"duplicate control exchange {name}")
+        seen.add(name)
+        gate = control_gate(case, ctl)
+        if gate is not None and (want["status"], want.get("code")) != gate:
+            errors.append(f"control {name}: the gateway concludes {gate}, fixture says "
+                          f"{(want['status'], want.get('code'))}")
+        if gate is None and want.get("code") in ("deck_control_unauthorized", "deck_control_bad_request"):
+            errors.append(f"control {name}: the gateway would pass this request, fixture says {want.get('code')}")
+        if want["status"] == 200:
+            if gate is not None:
+                continue
+            schema = next(o["response"] for o in ctl["operations"] if o["operation"] == case["body"]["operation"])
+            if not validators[schema].is_valid(want["body"]):
+                errors.append(f"control {name}: reply does not match {schema}")
+            if schema == timeout["schema"] and want["body"].get(timeout["field"]):
+                timeouts += 1
+            continue
+        code = want.get("code")
+        if code not in refusals or want["status"] not in refusals[code]["status"]:
+            errors.append(f"control {name}: {want['status']} {code} is not in the refusal table")
+            continue
+        if not validators[ctl["error"]].is_valid(want["body"]) or want["body"]["error"]["code"] != code:
+            errors.append(f"control {name}: refusal body does not match control-error for {code}")
+    sides = {(c["expect"].get("code"), c["token"] is not None) for c in ctl["exchanges"] if c["expect"]["status"] != 200}
+    for code in codes:
+        for local in ((True,) if code == "deck_control_unauthorized" else (False, True)):
+            if (code, local) not in sides:
+                errors.append(f"control exchanges need {code} {'with' if local else 'without'} a bearer token")
+    ok_sides = {(c["body"].get("operation"), c["token"] is not None) for c in ctl["exchanges"]
+                if c["expect"]["status"] == 200}
+    for op in ops:
+        for local in (False, True):
+            if (op["operation"], local) not in ok_sides:
+                errors.append(f"control exchanges need a {op['operation']} success "
+                              f"{'with' if local else 'without'} a bearer token")
+    if timeouts < 2:
+        errors.append("control exchanges need a wait timeout with and without a bearer token")
+
+
 def load(path: pathlib.Path):
     try:
         return json.loads(path.read_text())
@@ -220,6 +339,7 @@ if payloads:
 
 if matrix and payloads:
     check_github(matrix.get("github"), schemas, validators, spec)
+    check_control(matrix.get("control"), schemas, validators, spec)
 
 if errors:
     print("FAILED")
@@ -227,4 +347,5 @@ if errors:
         print(f"  {e}")
     sys.exit(1)
 print(f"ok: contract {version}, {len(schemas)} schemas, {len(matrix['negotiation'])} negotiation cases, "
-      f"{len(payloads['cases'])} payload cases, {len(matrix['github']['framing_cases'])} framing cases")
+      f"{len(payloads['cases'])} payload cases, {len(matrix['github']['framing_cases'])} framing cases, "
+      f"{len(matrix['control']['exchanges'])} control exchanges")
