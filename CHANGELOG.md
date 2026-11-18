@@ -2,6 +2,14 @@
 
 Contract versions are semver (see `SPEC.md` §2).
 
+## 1.6.0 — candidate
+
+- Add coordinator `integrate` for a local branch, new draft PR or existing
+  PR (SPEC.md §13.7, Deck #210). The server reserves the destination and
+  records exact commits for the integration worker.
+- Task summaries expose the pins and a reason when an input is missing.
+  `wait` returns when preparation needs input.
+
 ## 1.5.0 — 2026-11-18
 
 Additive: a coordinator no longer has to find its project key (SPEC.md

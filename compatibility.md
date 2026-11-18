@@ -22,6 +22,7 @@ in `conformance/matrix.json`; this page is the release view.
 | 1.3.0 | 1 | pending adoption | pending adoption | idempotent prompts (§12); ACP names unchanged |
 | 1.4.0 | 1 | pending adoption | pending adoption | coordinator task control (§13); ACP names unchanged |
 | 1.5.0 | 1 | pending adoption | pending adoption | coordinator project defaults (§13.3); ACP names unchanged |
+| 1.6.0 | 1 | pending adoption | pending adoption | coordinator integration workers (§13.7); ACP names unchanged |
 | 2.0.0 | 1, 2 rules declared | TBD | TBD | bare names removed |
 
 Implementations declare the contract version they vendor (Construct:
@@ -115,3 +116,11 @@ No `initialize` field is added, so every ACP pairing above is unchanged.
 
 Deck and Construct pin 1.5.0 in the same wave, so the first row only occurs
 across an unpaired upgrade.
+
+## Coordinator integration workers (1.6.0)
+
+| Deck (server) | Construct (client) | Result |
+|---|---|---|
+| 1.5 | 1.6 | Deck returns `deck_control_refused` for `integrate`. Construct reports the refusal. |
+| 1.6 | 1.5 | Existing operations work. Construct ignores `integration` in task summaries. |
+| 1.6 | 1.6 | Construct requests integration and reads its pins and waiting reason through the normal task operations. |

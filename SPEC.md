@@ -1,6 +1,6 @@
 # SprawlCommons ACP extension contract
 
-Status: normative. Contract version `1.5.0` (see `VERSION`). Applies to ACP
+Status: normative. Contract version `1.6.0` (see `VERSION`). Applies to ACP
 protocol version 1, to the HTTP GitHub operation API of §11, and to the HTTP
 coordinator task-control API of §13.
 
@@ -35,7 +35,7 @@ Two axes are independent and MUST both be declared by an implementation:
 | Axis | This release | Meaning |
 |---|---|---|
 | `acp` | `1` | The ACP protocol version the peer speaks |
-| `contract` | `1.5.0` | This document and its schemas |
+| `contract` | `1.6.0` | This document and its schemas |
 
 Contract versions are semver:
 
@@ -632,7 +632,7 @@ lost ran, so it SHOULD ask the user rather than resend on its own. A 1.3 agent
 that advertises the capability and gets a malformed key rejects it. It never
 runs the prompt without the key, so a client bug fails loudly.
 
-## 13. Coordinator task control (since 1.4.0; project defaults since 1.5.0)
+## 13. Coordinator task control (since 1.4.0)
 
 A project coordinator is a task whose agent directs other tasks: it creates
 workers, prompts them, waits for their turns and stops them (Deck ADR 0011
@@ -711,6 +711,7 @@ operation of a closed set:
 | `tasks` | `project?` | `{ tasks, truncated, projects }`: at most 200 summaries and the project set | `control-tasks-request` | `control-tasks-response` |
 | `task` | `id` | `{ task }`: one summary | `control-task-request` | `control-task-response` |
 | `create` | `project?`, `brief`, `title?`, `budget?` | `{ id }` | `control-create-request` | `control-create-response` |
+| `integrate` (since 1.6.0) | `project?`, `destination`, `contributors`, `brief`, `title?`, `budget?` | `{ id }` | `control-integrate-request` | `control-integrate-response` |
 | `prompt` | `id`, `text` | `{ turn }` | `control-prompt-request` | `control-prompt-response` |
 | `wait` | `id`, `after_turn?`, `wait_ms` | `{ timed_out, task }` | `control-wait-request` | `control-wait-response` |
 | `stop` | `id` | `{ id, state }` | `control-stop-request` | `control-stop-response` |
@@ -735,10 +736,12 @@ request without asking the user.
 
 - **`tasks`** lists the summaries (§13.4) of tasks in scope, limited to
   `project` when it is given, most recently created first. At most 200 are
-  returned; `truncated` is true when more exist. Since 1.5.0 the reply also
-  carries `projects`: the coordinator's whole project set, each
-  `{ id, name }` (`id` the project key `create` and `tasks` take, `name` the
-  name the user sees in Deck), whether or not any task exists yet. A client
+  returned. The server may return fewer to fit the reply size limit.
+  `truncated` is true when more summaries are available. Since 1.5.0 the
+  reply also carries the coordinator's whole project set in `projects` as
+  `{ id, name }` entries. The `id` is the project key that `create` and
+  `tasks` take. The `name` is the name the user sees in Deck. The reply
+  includes the project set even if no task exists yet. A client
   reading a 1.4 server finds no `projects` and MUST NOT fail on that.
 - **`task`** returns one summary.
 - **`create`** records a worker in `project`, starts it, and delivers `brief`
@@ -757,13 +760,17 @@ request without asking the user.
   otherwise it refuses with `deck_control_bad_request` (400) and the message
   names the set's ids. A client SHOULD omit it unless the set has more than
   one project.
+- **`integrate`** reserves and prepares a worker to combine contributor
+  commits in order. It uses the project resolution, command, provenance,
+  title, budget and caps of `create`. See §13.7.
 - **`prompt`** sends `text` to an idle task and returns the number of the
   turn it began (§5.2: turns count from 0 and the first prompt begins turn 1).
   A task whose turn is `working` or `waiting` is `deck_control_busy`. A task
   that was just created and has no session yet is waited for, at most 60
-  seconds, and is then `deck_control_busy`. A task that is `stopped`,
-  `failed` or `destroyed` is `deck_control_refused`: this surface does not
-  resume tasks.
+  seconds, and is then `deck_control_busy`. An integration waiting for
+  inputs returns `deck_control_busy` immediately with the waiting reason.
+  This surface returns `deck_control_refused` for a `stopped`, `failed` or
+  `destroyed` task.
 - **`wait`** is a long poll. `wait_ms` is required, an integer from 0 to
   300000 (300 s); a larger value is `deck_control_bad_request`, never
   silently shortened. `after_turn` defaults to 0. The server replies
@@ -772,7 +779,8 @@ request without asking the user.
   1. the task's lifecycle state is `stopped`, `failed` or `destroyed`;
   2. its turn is `idle` and its number is greater than `after_turn`;
   3. a pending approval or a `waiting` permission question appeared after
-     the request arrived.
+     the request arrived;
+  4. since 1.6.0, the integration's preparation is waiting for input.
 
   Otherwise, after `wait_ms`, it replies `timed_out: true`. Either way the
   reply carries the task's current summary, and its status is 200: the time
@@ -799,12 +807,13 @@ A task summary (`control-task-summary`) has:
 | `title` | The first line of its first prompt, or `create`'s `title`; at most 80 characters; `null` before either exists. |
 | `state` | Lifecycle: `created`, `running`, `stopped`, `failed` or `destroyed`. |
 | `turn` | `{ number, state, stopReason? }` with §5.2's meaning and vocabulary; `null` before the host has seen a turn. |
-| `attention` | Why it needs a person now, or `null`: `approval`, `question`, `finished` or `failed` (Deck ADR 0010 §6). A reader treats an unknown value as "needs a person". |
+| `attention` | Why it needs a person now, or `null`: `approval`, `question`, `finished` or `failed` (Deck ADR 0010 §6). Since 1.6.0, `integration_input` means integration preparation is waiting. A reader treats an unknown value as "needs a person". |
 | `pending_approvals` | How many boundary approvals for it are pending in the host's queue. |
 | `publication` | Its latest publication (Deck ADR 0008 §8), or `null`: `{ kind: "branch", branch, commit }` or `{ kind: "pull_request", number, url, title, draft }`. |
 | `pull_request` | The last read live state of its pull request, or `null`: `{ number, state, draft, merged, html_url }`. |
 | `created_by` | The coordinator that created it, or `null` for a task the user created. |
 | `last_message` | The text of its last assistant message, at most 2048 bytes of UTF-8 cut at a character boundary, or `null`. `last_message_truncated` is true when it was cut. |
+| `integration` | Preparation and pinned inputs for an integration worker since 1.6.0, as `control-integration` (see §13.7). Absent for other workers. |
 
 A summary never carries a transcript, a prompt other than its title, a
 credential or a token.
@@ -824,7 +833,7 @@ token.
 | `deck_control_cap` | 403 | yes | Report it, then retry after a worker ends or the hour rolls; the user may raise the cap. |
 | `deck_control_refused` | 403 | no | Do something else: the host will not do this as asked (an operation outside the set, a budget above the ceiling, a project with no agent command, a stopped task, the coordinator itself). |
 | `deck_control_unknown` | 404 | no | The task does not exist or is outside scope. |
-| `deck_control_busy` | 409 | yes | Wait for the task's turn to end (`wait`), then prompt again. |
+| `deck_control_busy` | 409 | yes | Wait for the task or destination identified by the message to become available. |
 | `deck_control_unavailable` | 503 | yes | Retry later: the gateway could not reach `deckd`. |
 
 A client MUST surface the message to the model. A `retryable: false`
@@ -851,3 +860,74 @@ refuses with `deck_control_refused`.
 1.5 client that may meet a 1.4 server sends `project` (it is in every
 `tasks` summary, and in a 1.5 `tasks` reply's `projects`). `tasks` gains the
 reply field `projects`, which a 1.4 client ignores.
+
+1.6.0 adds `integrate` and the optional summary field `integration`. A
+1.5 server refuses `integrate` with `deck_control_refused`. The client MUST
+surface the refusal and MUST NOT substitute an ordinary `create` for it.
+A 1.5 client can use the other operations and ignores the new reply field.
+
+### 13.7 Integration workers (since 1.6.0)
+
+The coordinator supplies an ordered list of 1 to 16 distinct contributor
+task IDs from the chosen project. The server resolves them from its own
+records. A missing or out-of-scope task returns `deck_control_unknown`.
+The server refuses a coordinator as a contributor and refuses inputs from
+an incompatible repository. The request carries no paths, repository
+URLs, commit IDs, agent commands or publication grants.
+
+| `destination.kind` | Selector | Starting commit | Review result |
+|---|---|---|---|
+| `local_branch` | `branch`, a branch name without `refs/heads/`, per §11.2 | The branch tip in the exact local source repository | The integration worker's own local branch |
+| `new_pull_request` | The project's configured GitHub repository and base | The current tip of that base on GitHub | A draft PR from the integration worker's own branch, under the existing publication approval policy |
+| `existing_pull_request` | `number`, an open PR in the project's configured GitHub repository | The current PR head | The integration worker's own published branch, for the user to apply |
+
+The destination selects the required backend. A server that cannot run
+that backend refuses the request. It reserves one active integration per
+destination before starting preparation. The destination key uses the
+exact source repository and branch for a local target, or the normalized
+GitHub repository with the configured base or PR number for a remote
+target. The server records the key with the task and uses it for the
+lifetime of the reservation. The reservation covers preparation, a live
+worker and unconfirmed shutdown. The server also checks the reservation
+whenever it starts or resumes an integration worker.
+
+A repeat by the same coordinator for the same project, destination and
+ordered contributors returns the active worker's ID without consuming a
+second slot or replacing its brief or pins. If no preparation is in flight,
+the repeat retries waiting or interrupted preparation on the same worker.
+A different request for the reserved destination returns
+`deck_control_busy`. The message MAY name the active task only if the caller
+can see it under §13.3. The user can release a reservation before launch by
+destroying the task in Deck.
+
+The server records the destination's starting commit and each contributor
+commit as full object IDs. A local input comes from the contributor's
+recorded task branch in the source repository. A VM input comes from the
+contributor's published task branch in the authorized repository. A
+later ref movement MUST NOT substitute a different commit for a recorded
+pin. When a required commit cannot be obtained, the task's
+`integration.phase` is `waiting` with a `reason` of at most 512
+characters, and its resolved pins remain visible. This wait precedes the
+agent turn and does not change the meaning of `turn.state`.
+
+When the checkout is ready, the server starts the worker in its own
+checkout at the recorded starting commit. The first prompt includes the
+ordered exact commits, the contributor briefs and the integration brief.
+It asks the worker to combine those commits, resolve conflicts, run the
+combined tests, and report its resolutions and test results in its normal
+conversation. Deck's existing task conversation can also surface a
+decision the worker needs. The worker's result uses its own branch and
+leaves the destination and contributor refs untouched. The result must
+contain the starting commit and all pinned contributor commits in its
+ancestry. GitHub publication uses the project's approval mode and
+restricts writes to the integration worker's own branch. The existing
+PR and its head branch are read-only for the integration worker.
+
+The summary carries the destination selector, the worker's review branch,
+the phase (`preparing`, `waiting` or `ready`), and the ordered
+contributors as `{ id, commit? }`. `base_commit` and each `commit`
+appear when pinned and are required by `ready`. `ready` means the input
+checkout has been prepared. The worker's normal turn and publication
+fields report its progress after that. For remote destinations, the summary
+also carries the recorded `repository`. For a new PR, it also carries the
+recorded `base_branch`.
