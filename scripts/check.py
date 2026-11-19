@@ -149,8 +149,8 @@ def check_control(ctl, schemas, validators, spec):
         return
     by_name = {p.name: s for p, s in schemas.items()}
     ops = ctl["operations"]
-    if [op["operation"] for op in ops] != ["tasks", "task", "create", "prompt", "wait", "stop"]:
-        errors.append("the control operation set is closed at six operations")
+    if [op["operation"] for op in ops] != ["tasks", "task", "create", "integrate", "prompt", "wait", "stop"]:
+        errors.append("the control operation set is closed at seven operations")
     if ctl["capability"] is not None:
         errors.append("the control surface has no initialize capability")
     for term in (ctl["path"], ctl["environment"]["url"], ctl["environment"]["token"], "WWW-Authenticate",
@@ -182,6 +182,15 @@ def check_control(ctl, schemas, validators, spec):
     if summary.get("title", {}).get("maxLength") != limits["title_chars"] or \
             summary.get("last_message", {}).get("maxLength") != limits["last_message_bytes"]:
         errors.append("control-task-summary bounds disagree with limits")
+    integrate = by_name.get("control-integrate-request.schema.json", {}).get("properties", {})
+    integration = by_name.get("control-integration.schema.json", {}).get("properties", {})
+    if any(props.get("contributors", {}).get("maxItems") != limits["integration_contributors"]
+           for props in (integrate, integration)):
+        errors.append("integration contributor bounds disagree with limits")
+    if integration.get("reason", {}).get("maxLength") != limits["integration_reason_chars"]:
+        errors.append("integration reason bound disagrees with limits")
+    if "integration-waiting" not in ctl["wait_wakes"]:
+        errors.append("wait must return for an integration waiting for input")
     codes = [r["code"] for r in ctl["refusals"]]
     error_schema = by_name.get(ctl["error"], {})
     if error_schema.get("properties", {}).get("error", {}).get("properties", {}).get("code", {}).get("enum") != codes:
@@ -242,6 +251,15 @@ def check_control(ctl, schemas, validators, spec):
                 and "project" not in c["body"] and c["expect"]["status"] == 200}
     if defaults != {False, True}:
         errors.append("control exchanges need a create without project, with and without a bearer token")
+    destinations = {c["body"]["destination"]["kind"] for c in ctl["exchanges"]
+                    if c["body"].get("operation") == "integrate" and c["expect"]["status"] == 200}
+    if destinations != {"local_branch", "new_pull_request", "existing_pull_request"}:
+        errors.append("control exchanges need an integrate success for each destination kind")
+    waiting = [c["expect"]["body"] for c in ctl["exchanges"]
+               if c["body"].get("operation") == "wait" and c["expect"]["status"] == 200
+               and c["expect"]["body"]["task"].get("integration", {}).get("phase") == "waiting"]
+    if not waiting or any(reply["timed_out"] for reply in waiting):
+        errors.append("control exchanges need a wait that returns for a missing integration input")
 
 
 def load(path: pathlib.Path):
