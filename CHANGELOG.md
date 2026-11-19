@@ -2,7 +2,7 @@
 
 Contract versions are semver (see `SPEC.md` §2).
 
-## 1.6.0 — candidate
+## 1.6.0 — 2026-11-18
 
 - Add coordinator `integrate` for a local branch, new draft PR or existing
   PR (SPEC.md §13.7, Deck #210). The server reserves the destination and
