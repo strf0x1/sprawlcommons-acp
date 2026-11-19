@@ -23,6 +23,7 @@ in `conformance/matrix.json`; this page is the release view.
 | 1.4.0 | 1 | pending adoption | pending adoption | coordinator task control (§13); ACP names unchanged |
 | 1.5.0 | 1 | pending adoption | pending adoption | coordinator project defaults (§13.3); ACP names unchanged |
 | 1.6.0 | 1 | pending adoption | pending adoption | coordinator integration workers (§13.7); ACP names unchanged |
+| 1.7.0 | 1 | pending adoption | pending adoption | optional local worktree facts (§13.4); ACP names unchanged |
 | 2.0.0 | 1, 2 rules declared | TBD | TBD | bare names removed |
 
 Implementations declare the contract version they vendor (Construct:

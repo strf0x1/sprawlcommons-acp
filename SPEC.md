@@ -814,9 +814,17 @@ A task summary (`control-task-summary`) has:
 | `created_by` | The coordinator that created it, or `null` for a task the user created. |
 | `last_message` | The text of its last assistant message, at most 2048 bytes of UTF-8 cut at a character boundary, or `null`. `last_message_truncated` is true when it was cut. |
 | `integration` | Preparation and pinned inputs for an integration worker since 1.6.0, as `control-integration` (see §13.7). Absent for other workers. |
+| `worktree` | A local worker's managed Git worktree since 1.7.0. It carries `branch`, the task branch without `refs/heads/`, and `base_commit`, its full starting commit ID. `target_ref` is the full local branch ref when known. |
+
+In `task` and `wait`, `worktree.review_commit` may name the full commit ID
+at the task branch tip. It is present only when the branch has advanced from
+its recorded start and contains the start in its ancestry. For an integration
+worker it also contains each pinned contributor commit. It describes the
+committed branch and does not account for uncommitted files. A `tasks`
+listing may omit the review commit.
 
 A summary never carries a transcript, a prompt other than its title, a
-credential or a token.
+credential, a token or a local worktree path.
 
 ### 13.5 Refusals
 
