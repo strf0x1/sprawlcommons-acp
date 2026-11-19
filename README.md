@@ -15,6 +15,7 @@ repo owns it.
 - Since 1.2.0, `github-*` schemas and `matrix.json` `github` define the GitHub operation API (SPEC.md §11).
 - Since 1.4.0, `control-*` schemas and `matrix.json` `control` define the coordinator task-control API (SPEC.md §13); since 1.5.0 `create` defaults its project and `tasks` names the project set.
 - Since 1.6.0, `integrate` prepares a worker with pinned Git inputs (§13.7).
+- Since 1.7.0, coordinator task summaries can report local worktree facts (§13.4).
 - [`CHANGELOG.md`](CHANGELOG.md) — contracts are versioned; this says how.
 - [Construct timed-grant handoff](.handoff/construct-timed-grants.md) — receiver
   adoption plan for contract 1.1.0.

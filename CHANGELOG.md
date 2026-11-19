@@ -2,6 +2,12 @@
 
 Contract versions are semver (see `SPEC.md` §2).
 
+## 1.7.0 — 2026-11-19
+
+- Add optional `worktree` facts to coordinator task summaries. A local
+  worker can report its branch, starting commit, target ref and verified
+  review commit (SPEC.md §13.4).
+
 ## 1.6.0 — 2026-11-18
 
 - Add coordinator `integrate` for a local branch, new draft PR or existing
