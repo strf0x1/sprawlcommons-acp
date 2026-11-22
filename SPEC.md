@@ -840,7 +840,9 @@ on additions, answers and retirements independently of the turn number,
 and is fenced to the holder run and selected session. It is not an event-log
 cursor and is not a request argument. `wait` compares it to the observation
 at arrival; a question already pending at arrival does not itself wake it.
-A rapid ask/answer cycle still changes the cursor.
+A rapid ask/answer cycle still changes the cursor. Initial availability of
+an empty view, or a session change between empty views, does not by itself
+wake a wait: there is no question or resolution to report.
 
 `pending_count` is the total number of current questions. `pending` shows
 the oldest at most 16, in observation order. Each entry contains:
