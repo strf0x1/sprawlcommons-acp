@@ -780,7 +780,9 @@ request without asking the user.
   2. its turn is `idle` and its number is greater than `after_turn`;
   3. a pending approval or a `waiting` permission question appeared after
      the request arrived;
-  4. since 1.6.0, the integration's preparation is waiting for input.
+  4. since 1.6.0, the integration's preparation is waiting for input;
+  5. since 1.8.0, the permission observation cursor changed after the
+     request arrived, including an answer while another question stays open.
 
   Otherwise, after `wait_ms`, it replies `timed_out: true`. Either way the
   reply carries the task's current summary, and its status is 200: the time
@@ -814,6 +816,7 @@ A task summary (`control-task-summary`) has:
 | `created_by` | The coordinator that created it, or `null` for a task the user created. |
 | `last_message` | The text of its last assistant message, at most 2048 bytes of UTF-8 cut at a character boundary, or `null`. `last_message_truncated` is true when it was cut. |
 | `integration` | Preparation and pinned inputs for an integration worker since 1.6.0, as `control-integration` (see §13.7). Absent for other workers. |
+| `permissions` | Optional read-only ACP permission observations since 1.8.0, defined below. Absent means unsupported or unavailable, not zero pending questions. |
 | `worktree` | A local worker's managed Git worktree since 1.7.0. It carries `branch`, the task branch without `refs/heads/`, and `base_commit`, its full starting commit ID. `target_ref` is the full local branch ref when known. |
 
 In `task` and `wait`, `worktree.review_commit` may name the full commit ID
@@ -824,7 +827,72 @@ committed branch and does not account for uncommitted files. A `tasks`
 listing may omit the review commit.
 
 A summary never carries a transcript, a prompt other than its title, a
-credential, a token or a local worktree path.
+host credential, a token or a host-derived local worktree path. The pending
+permission subject below is a narrow exception for agent-authored paths and
+commands. The host MUST NOT derive a host path from a guest path or add a
+worktree location to explain a question.
+
+#### Permission observations (since 1.8.0)
+
+`permissions` contains `cursor`, `pending_count`, `pending` and `resolved`.
+The cursor is an opaque change marker of at most 128 characters. It changes
+on additions, answers and retirements independently of the turn number,
+and is fenced to the holder run and selected session. It is not an event-log
+cursor and is not a request argument. `wait` compares it to the observation
+at arrival; a question already pending at arrival does not itself wake it.
+A rapid ask/answer cycle still changes the cursor. Initial availability of
+an empty view, or a session change between empty views, does not by itself
+wake a wait: there is no question or resolution to report.
+
+`pending_count` is the total number of current questions. `pending` shows
+the oldest at most 16, in observation order. Each entry contains:
+
+- `observation_id`, an opaque display-only correlation ID of at most 128
+  characters, minted by the host. It is never an ACP request ID, tool-call
+  ID, option ID or answer handle. No operation accepts it.
+- optional `turn`, the observed turn number when known;
+- `subject`, solely the agent's `toolCall.title`, normalized to one line
+  and cut at a UTF-8 character boundary to at most 256 bytes. Missing or
+  empty titles become `a tool`. `truncated` says whether it was shortened;
+- `kind`, solely ACP `toolCall.kind`: `read`, `edit`, `delete`, `move`,
+  `search`, `execute`, `think`, `fetch` or `other`. Missing and unknown kinds
+  become `other`.
+
+Subjects are untrusted agent text and may contain requested paths or
+commands. A length bound does not detect secrets in arbitrary agent text.
+The host MUST NOT copy raw input, detail, option labels, option IDs or ACP
+request IDs into these observations, or inject a host credential or token.
+
+`resolved` holds the latest at most 16 resolutions, oldest first. Each has
+only `observation_id`, optional `turn`, `verdict` and `source`. Subject and
+kind are removed on resolution. Entries remain until displaced, a selected
+session or holder run changes, or the task is destroyed. This bounded view
+does not guarantee that a slow reader sees every resolution.
+
+`source: response` means the holder observed a client response, not that
+the agent received it, accepted it or executed the operation. `allowed`
+requires a selected, uniquely offered option with exactly `allow_once` or
+`allow_always`; `denied` requires exactly `reject_once` or `reject_always`.
+`cancelled` means an explicit ACP cancelled outcome. Invalid, ambiguous,
+unrecognized or error responses produce `unknown`. No grant lifetime is
+inferred. `source: retired` has verdict `unknown`: a question ceased to be
+current without an observed answer. Retirement MUST NOT imply denial.
+
+Reattachment retires old request IDs; replayed questions get fresh display
+IDs. A same-turn Waiting snapshot preserves the fresh replay. Foreign
+sessions and stale responses MUST NOT resolve a current question. Failed
+session setup MUST NOT replace the selected session's observations. A new
+holder run MUST NOT reuse a prior run's observations. After termination,
+no stale pending subjects are exposed. Whole snapshots pair the turn and
+permission observations from one holder observation. Missing or invalid
+observations MUST NOT be presented as a supported empty view.
+
+Only pending entries contain subjects. These observations add no answer or
+approval operation; the user retains authority. An in-scope busy refusal
+MAY quote one bounded pending subject in its existing message, with the
+same privacy rules. Status, code and retryability are unchanged. Clients
+MUST tolerate absence and unknown future fields, kinds and verdicts, and
+MUST NOT interpret unfamiliar values as permission authority.
 
 ### 13.5 Refusals
 

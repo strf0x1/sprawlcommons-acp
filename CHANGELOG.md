@@ -2,6 +2,14 @@
 
 Contract versions are semver (see `SPEC.md` §2).
 
+## 1.8.0 - 2026-11-22
+
+- Add optional read-only permission observations to coordinator task
+  summaries. Pending previews identify the question; resolved observations
+  retain only a correlation ID, turn, verdict and source (§13.4).
+- Wake `wait` on same-turn permission changes. The closed operation set and
+  the user's answer authority stay unchanged.
+
 ## 1.7.0 — 2026-11-19
 
 - Add optional `worktree` facts to coordinator task summaries. A local
