@@ -330,7 +330,24 @@
               "verdict",
               "source"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "if": {
+              "properties": {
+                "source": {
+                  "const": "retired"
+                }
+              },
+              "required": [
+                "source"
+              ]
+            },
+            "then": {
+              "properties": {
+                "verdict": {
+                  "const": "unknown"
+                }
+              }
+            }
           }
         }
       },
