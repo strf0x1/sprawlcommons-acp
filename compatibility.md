@@ -24,6 +24,7 @@ in `conformance/matrix.json`; this page is the release view.
 | 1.5.0 | 1 | pending adoption | pending adoption | coordinator project defaults (§13.3); ACP names unchanged |
 | 1.6.0 | 1 | pending adoption | pending adoption | coordinator integration workers (§13.7); ACP names unchanged |
 | 1.7.0 | 1 | pending adoption | pending adoption | optional local worktree facts (§13.4); ACP names unchanged |
+| 1.8.0 | 1 | pending adoption | pending adoption | optional permission observations and same-turn wait wake (§13.4); no answer operation |
 | 2.0.0 | 1, 2 rules declared | TBD | TBD | bare names removed |
 
 Implementations declare the contract version they vendor (Construct:
@@ -125,3 +126,16 @@ across an unpaired upgrade.
 | 1.5 | 1.6 | Deck returns `deck_control_refused` for `integrate`. Construct reports the refusal. |
 | 1.6 | 1.5 | Existing operations work. Construct ignores `integration` in task summaries. |
 | 1.6 | 1.6 | Construct requests integration and reads its pins and waiting reason through the normal task operations. |
+
+## Coordinator permission observations (1.8.0)
+
+| Deck server | Construct client | Behavior |
+|---|---|---|
+| 1.7 or earlier | 1.8 | Missing `permissions` means unavailable; existing summaries still work. |
+| 1.8 | 1.7 or earlier | Unknown optional fields are ignored. Existing operations still work. |
+| 1.8 | 1.8 | Pending titles and observed verdicts appear in task, tasks and wait output. |
+
+No capability, request field or operation is added. The coordinator cannot
+answer a question. Unknown future kinds and verdicts are informational.
+Implementations may pin an immutable candidate commit and remain draft
+until `v1.8.0` is merged and tagged, then refresh both pins in the same wave.
